@@ -1,0 +1,3 @@
+-- tabella statica
+-- Non esiste una corrispondenza deterministica su rasop.
+-- Popolamento manuale o da dizionario dedicato.

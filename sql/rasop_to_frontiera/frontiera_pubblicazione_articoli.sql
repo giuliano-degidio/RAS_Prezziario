@@ -1,0 +1,40 @@
+INSERT INTO hcbi_ras.frontiera_pubblicazione_articoli (
+    provincia, anno, codice_completo, um, prezzo, prezan, percsp,
+    percutil, sicur, percman, perconeri, isanalisi, prezman, addendum,
+    codice, codice_1, codice_2, codice_3, codice_4, codice_5, um_de,
+    id_categoria, is_minuteria, id, percman_diretta, prezman_diretta,
+    ifc_scaricabile, macro_gruppo, spese, utili
+)
+SELECT
+    pa.provincia::character varying(100) AS provincia,
+    pa.anno::character varying(100) AS anno,
+    pa.codice_completo,
+    pa.um,
+    pa.prezzo::character varying(100) AS prezzo,
+    pa.prezan::character varying(100) AS prezan,
+    pa.percsp::character varying(100) AS percsp,
+    pa.percutil::character varying(100) AS percutil,
+    pa.sicur::character varying(100) AS sicur,
+    pa.percman::character varying(100) AS percman,
+    pa.perconeri::character varying(100) AS perconeri,
+    pa.isanalisi::character varying(20) AS isanalisi,
+    pa.prezman::character varying(100) AS prezman,
+    pa.addendum::character varying(20) AS addendum,
+    pa.codice,
+    pa.codice_1,
+    pa.codice_2,
+    pa.codice_3,
+    pa.codice_4,
+    pa.codice_5,
+    pa.um_de,
+    pa.id_categoria::character varying(20) AS id_categoria,
+    pa.is_minuteria::character varying(20) AS is_minuteria,
+    pa.id::character varying(100) AS id,
+    pa.percman_diretta::character varying(100) AS percman_diretta,
+    pa.prezman_diretta::character varying(100) AS prezman_diretta,
+    pa.ifc_scaricabile::character varying(20) AS ifc_scaricabile,
+    pa.macro_gruppo::character varying(20) AS macro_gruppo,
+    pa.spese::character varying(100) AS spese,
+    pa.utili::character varying(100) AS utili
+FROM public.pubblicazione_articoli AS pa
+ORDER BY pa.provincia, pa.anno, pa.codice_completo;
