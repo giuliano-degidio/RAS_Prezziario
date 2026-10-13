@@ -1,0 +1,28 @@
+
+CREATE TABLE hcbi_ras.frontiera_firenze_analisi (
+	nr_anno INTEGER NOT NULL, 
+	ds_regione VARCHAR(50) NOT NULL, 
+	ds_provincia VARCHAR(50) NOT NULL, 
+	nr_riga_file BIGINT NOT NULL, 
+	analisi TEXT, 
+	descrizione TEXT, 
+	cam TEXT, 
+	codice_dettaglio TEXT, 
+	cam_codice_dettaglio TEXT, 
+	voce_articolo TEXT, 
+	codice_collegato TEXT, 
+	unita_misura TEXT, 
+	quantita TEXT, 
+	prezzo_unitario TEXT, 
+	importo TEXT, 
+	tx_nome_file VARCHAR(255) NOT NULL, 
+	dt_caricamento TIMESTAMP WITHOUT TIME ZONE DEFAULT clock_timestamp() NOT NULL, 
+	tx_caricamento_by VARCHAR(100) DEFAULT CURRENT_USER NOT NULL, 
+	CONSTRAINT frontiera_firenze_analisi_pkey PRIMARY KEY (nr_anno, nr_riga_file), 
+	CONSTRAINT uk_frontiera_firenze_analisi_riga UNIQUE NULLS DISTINCT (nr_anno, nr_riga_file), 
+	CONSTRAINT ck_frontiera_firenze_analisi_anno CHECK (nr_anno >= 2000 AND nr_anno <= 2999), 
+	CONSTRAINT ck_frontiera_firenze_analisi_file CHECK (tx_nome_file::text ~ '^Firenze-Analisi-[0-9]{4}[.]csv$'::text), 
+	CONSTRAINT ck_frontiera_firenze_analisi_provincia CHECK (btrim(ds_provincia::text) <> ''::text), 
+	CONSTRAINT ck_frontiera_firenze_analisi_regione CHECK (btrim(ds_regione::text) <> ''::text), 
+	CONSTRAINT ck_frontiera_firenze_analisi_riga CHECK (nr_riga_file > 0)
+);

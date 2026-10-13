@@ -1,0 +1,27 @@
+
+CREATE TABLE hcbi_ras.src_tmp_firenze_articoli (
+	nr_anno INTEGER, 
+	ds_regione VARCHAR(100), 
+	ds_provincia VARCHAR(100), 
+	nr_riga_file BIGINT, 
+	cd_codice_completo VARCHAR(100), 
+	fl_cam VARCHAR(50), 
+	ds_tipologia_famiglia TEXT, 
+	ds_capitolo TEXT, 
+	ds_voce TEXT, 
+	ds_articolo TEXT, 
+	cd_unita_misura VARCHAR(50), 
+	nr_prezzo_senza_sg_ui VARCHAR(50), 
+	nr_prezzo VARCHAR(50), 
+	nr_perc_spese_generali VARCHAR(50), 
+	nr_spese_generali VARCHAR(50), 
+	nr_perc_utili_impresa VARCHAR(50), 
+	nr_utili_impresa VARCHAR(50), 
+	nr_perc_oneri_sicurezza_impresa VARCHAR(50), 
+	nr_oneri_sicurezza_impresa VARCHAR(50), 
+	nr_incidenza_manodopera_indiretta VARCHAR(50), 
+	nr_manodopera_indiretta VARCHAR(50), 
+	nr_incidenza_manodopera_diretta VARCHAR(50), 
+	nr_manodopera_diretta VARCHAR(50), 
+	nr_incidenza_oneri_sicurezza_prezzo VARCHAR(50)
+);

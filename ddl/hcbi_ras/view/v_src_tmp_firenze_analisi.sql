@@ -1,0 +1,20 @@
+CREATE OR REPLACE VIEW "hcbi_ras"."v_src_tmp_firenze_analisi" AS
+ SELECT nr_anno::text AS nr_anno,
+    ds_regione,
+    ds_provincia,
+    nr_riga_file::text AS nr_riga_file,
+    analisi,
+    descrizione,
+    cam,
+    codice_dettaglio,
+    cam_codice_dettaglio,
+    voce_articolo,
+    codice_collegato,
+    unita_misura,
+    quantita,
+    prezzo_unitario,
+    importo,
+    tx_nome_file,
+    dt_caricamento::text AS dt_caricamento,
+    tx_caricamento_by
+   FROM hcbi_ras.src_tmp_firenze_analisi s;;

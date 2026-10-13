@@ -1,0 +1,9 @@
+CREATE SEQUENCE "hcbi_utility"."seq_log_chain"
+    AS bigint
+    INCREMENT BY 1
+    MINVALUE 0
+    MAXVALUE 9223372036854775807
+    START WITH 4025
+    CACHE 1
+    NO CYCLE
+    OWNED BY NONE;

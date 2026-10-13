@@ -1,0 +1,27 @@
+CREATE OR REPLACE VIEW "hcbi_ras"."v_dwh_firenze_articoli" AS
+ SELECT nr_anno,
+    btrim(ds_regione::text)::character varying(100) AS ds_regione,
+    btrim(ds_provincia::text)::character varying(100) AS ds_provincia,
+    nr_riga_file,
+    NULLIF(btrim(cd_codice_completo::text), ''::text)::character varying(100) AS cd_codice_completo,
+    NULLIF(btrim(fl_cam::text), ''::text)::character varying(50) AS fl_cam,
+    ds_tipologia_famiglia,
+    ds_capitolo,
+    ds_voce,
+    ds_articolo,
+    NULLIF(btrim(cd_unita_misura::text), ''::text)::character varying(50) AS cd_unita_misura,
+    nr_prezzo_senza_sg_ui_c AS nr_prezzo_senza_sg_ui,
+    nr_prezzo_c AS nr_prezzo,
+    nr_perc_spese_generali_c AS nr_perc_spese_generali,
+    nr_spese_generali_c AS nr_spese_generali,
+    nr_perc_utili_impresa_c AS nr_perc_utili_impresa,
+    nr_utili_impresa_c AS nr_utili_impresa,
+    nr_perc_oneri_sicurezza_impresa_c AS nr_perc_oneri_sicurezza_impresa,
+    nr_oneri_sicurezza_impresa_c AS nr_oneri_sicurezza_impresa,
+    nr_incidenza_manodopera_indiretta_c AS nr_incidenza_manodopera_indiretta,
+    nr_manodopera_indiretta_c AS nr_manodopera_indiretta,
+    nr_incidenza_manodopera_diretta_c AS nr_incidenza_manodopera_diretta,
+    nr_manodopera_diretta_c AS nr_manodopera_diretta,
+    nr_incidenza_oneri_sicurezza_prezzo_c AS nr_incidenza_oneri_sicurezza_prezzo
+   FROM hcbi_ras.v_dwh_firenze_articoli_classificata
+  WHERE cd_esito::text = 'LOAD'::text;;

@@ -1,0 +1,12 @@
+
+CREATE TABLE hcbi_ras.dim_ateco_2002 (
+	id_anag_ateco_2002 BIGINT NOT NULL, 
+	cd_ateco_2002 VARCHAR(200) NOT NULL, 
+	ds_ateco_2002 VARCHAR(512) NOT NULL, 
+	dt_creation TIMESTAMP WITHOUT TIME ZONE DEFAULT clock_timestamp() NOT NULL, 
+	tx_creation_by VARCHAR(4000) DEFAULT CURRENT_USER NOT NULL, 
+	dt_update TIMESTAMP WITHOUT TIME ZONE DEFAULT clock_timestamp() NOT NULL, 
+	tx_update_by VARCHAR(4000) DEFAULT CURRENT_USER NOT NULL, 
+	CONSTRAINT pk_dim_ateco_2002 PRIMARY KEY (id_anag_ateco_2002), 
+	CONSTRAINT uq_dim_ateco_2002 UNIQUE NULLS NOT DISTINCT (cd_ateco_2002)
+);

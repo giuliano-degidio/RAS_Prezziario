@@ -1,0 +1,22 @@
+CREATE OR REPLACE VIEW "hcbi_ras"."v_src_tmp_anag_versione" AS
+ SELECT TRIM(BOTH FROM anno::text) AS ds_anno_pubblicazione,
+    TRIM(BOTH FROM addendum::text) AS cd_versione,
+    TRIM(BOTH FROM addendum_name) AS ds_versione,
+    TRIM(BOTH FROM scostamento_1_visibile::text) AS fl_scostamento_1_visibile,
+    TRIM(BOTH FROM scostamento_2_visibile::text) AS fl_scostamento_2_visibile,
+    TRIM(BOTH FROM scostamento_3_visibile::text) AS fl_scostamento_3_visibile,
+    TRIM(BOTH FROM scostamento_4_visibile::text) AS fl_scostamento_4_visibile,
+    TRIM(BOTH FROM spese_generali::text) AS nr_spese_generali,
+    TRIM(BOTH FROM utile_impresa::text) AS nr_utile_impresa,
+    TRIM(BOTH FROM llpp_homepage_title) AS ds_llpp_homepage_title,
+    TRIM(BOTH FROM llpp_homepage_description) AS ds_llpp_homepage_description,
+    TRIM(BOTH FROM di_cui_analisi::text) AS nr_di_cui_analisi,
+    TRIM(BOTH FROM pubblicazione_regionale::text) AS fl_pubblicazione_regionale,
+    TRIM(BOTH FROM scostamento_5_visibile::text) AS fl_scostamento_5_visibile,
+    TRIM(BOTH FROM id::text) AS id_sorgente_versione,
+    TRIM(BOTH FROM mostra_annotazioni::text) AS fl_mostra_annotazioni,
+    TRIM(BOTH FROM mostra_struttura_analisi::text) AS fl_mostra_struttura_analisi,
+    TRIM(BOTH FROM is_errata_corrige::text) AS fl_is_errata_corrige,
+    TRIM(BOTH FROM mostra_cam::text) AS fl_mostra_cam,
+    TRIM(BOTH FROM provincia::text) AS id_sorgente_provincia
+   FROM hcbi_ras.src_tmp_anag_versione s;;

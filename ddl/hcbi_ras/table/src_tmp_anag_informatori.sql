@@ -1,0 +1,26 @@
+
+CREATE TABLE hcbi_ras.src_tmp_anag_informatori (
+	id VARCHAR(100), 
+	ragione_sociale VARCHAR(100), 
+	p_iva VARCHAR(100), 
+	codice_ateco_2002 VARCHAR(100), 
+	indirizzo_sede_legale VARCHAR(100), 
+	cap_sede_legale VARCHAR(10), 
+	citta_sede_legale VARCHAR(100), 
+	provincia_sede_legale VARCHAR(100), 
+	indirizzo_sede_operativa VARCHAR(100), 
+	cap_sede_operativa VARCHAR(10), 
+	citta_sede_operativa VARCHAR(100), 
+	provincia_sede_operativa VARCHAR(100), 
+	contatti TEXT, 
+	stato VARCHAR(20), 
+	note TEXT, 
+	stato_attivita VARCHAR(100), 
+	codice_fiscale VARCHAR(100), 
+	anno VARCHAR(100), 
+	last_update VARCHAR(100), 
+	nazione VARCHAR(40), 
+	addendum VARCHAR(20), 
+	provincia VARCHAR(100), 
+	escludi_invio_mail_assoc_listino_completa VARCHAR(20)
+);

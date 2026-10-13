@@ -1,0 +1,22 @@
+CREATE OR REPLACE VIEW "hcbi_ras"."v_dwh_anag_versione" AS
+ SELECT ds_anno_pubblicazione,
+    cd_versione,
+    ds_versione,
+    fl_scostamento_1_visibile,
+    fl_scostamento_2_visibile,
+    fl_scostamento_3_visibile,
+    fl_scostamento_4_visibile,
+    fl_scostamento_5_visibile,
+    nr_spese_generali,
+    nr_utile_impresa,
+    nr_di_cui_analisi,
+    ds_llpp_homepage_title,
+    ds_llpp_homepage_description,
+    fl_pubblicazione_regionale,
+    id_sorgente_versione,
+    fl_mostra_annotazioni,
+    fl_mostra_struttura_analisi,
+    fl_is_errata_corrige,
+    fl_mostra_cam,
+    id_sorgente_provincia
+   FROM hcbi_ras.stg_anag_versione s;;

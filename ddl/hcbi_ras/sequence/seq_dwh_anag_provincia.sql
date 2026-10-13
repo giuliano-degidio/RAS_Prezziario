@@ -1,0 +1,9 @@
+CREATE SEQUENCE "hcbi_ras"."seq_dwh_anag_provincia"
+    AS bigint
+    INCREMENT BY 1
+    MINVALUE 0
+    MAXVALUE 9223372036854775807
+    START WITH 0
+    CACHE 1
+    NO CYCLE
+    OWNED BY NONE;

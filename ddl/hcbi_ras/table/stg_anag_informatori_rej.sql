@@ -1,0 +1,27 @@
+
+CREATE TABLE hcbi_ras.stg_anag_informatori_rej (
+	id_sorgente_informatore VARCHAR(100), 
+	ds_ragione_sociale VARCHAR(100), 
+	cd_p_iva VARCHAR(100), 
+	cd_codice_ateco_2002 VARCHAR(100), 
+	ds_indirizzo_sede_legale VARCHAR(100), 
+	cd_cap_sede_legale VARCHAR(10), 
+	ds_citta_sede_legale VARCHAR(100), 
+	cd_provincia_sede_legale VARCHAR(100), 
+	ds_indirizzo_sede_operativa VARCHAR(100), 
+	cd_cap_sede_operativa VARCHAR(10), 
+	ds_citta_sede_operativa VARCHAR(100), 
+	cd_provincia_sede_operativa VARCHAR(100), 
+	ds_contatti TEXT, 
+	cd_stato VARCHAR(20), 
+	ds_note TEXT, 
+	ds_stato_attivita VARCHAR(100), 
+	cd_codice_fiscale VARCHAR(100), 
+	ds_anno_pubblicazione VARCHAR(100), 
+	dt_last_update VARCHAR(100), 
+	ds_nazione VARCHAR(40), 
+	cd_versione VARCHAR(20), 
+	id_sorgente_provincia VARCHAR(100), 
+	fl_escludi_invio_mail_assoc_listino_completa VARCHAR(20), 
+	tx_motivo_scarto VARCHAR(4000)
+);

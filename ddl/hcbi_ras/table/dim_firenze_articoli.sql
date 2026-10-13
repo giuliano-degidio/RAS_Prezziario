@@ -1,0 +1,38 @@
+
+CREATE TABLE hcbi_ras.dim_firenze_articoli (
+	id_firenze_articolo BIGINT NOT NULL, 
+	nr_anno INTEGER NOT NULL, 
+	ds_regione VARCHAR(100) NOT NULL, 
+	ds_provincia VARCHAR(100) NOT NULL, 
+	nr_riga_file BIGINT NOT NULL, 
+	cd_codice_completo VARCHAR(100) NOT NULL, 
+	cd_articolo VARCHAR(100), 
+	fl_cam VARCHAR(50), 
+	ds_tipologia_famiglia TEXT, 
+	ds_capitolo TEXT, 
+	ds_voce TEXT, 
+	ds_articolo TEXT, 
+	cd_unita_misura VARCHAR(50), 
+	nr_prezzo_senza_sg_ui NUMERIC(24, 6), 
+	nr_prezzo NUMERIC(24, 6), 
+	nr_perc_spese_generali NUMERIC(24, 6), 
+	nr_spese_generali NUMERIC(24, 6), 
+	nr_perc_utili_impresa NUMERIC(24, 6), 
+	nr_utili_impresa NUMERIC(24, 6), 
+	nr_perc_oneri_sicurezza_impresa NUMERIC(24, 6), 
+	nr_oneri_sicurezza_impresa NUMERIC(24, 6), 
+	nr_incidenza_manodopera_indiretta NUMERIC(24, 6), 
+	nr_manodopera_indiretta NUMERIC(24, 6), 
+	nr_incidenza_manodopera_diretta NUMERIC(24, 6), 
+	nr_manodopera_diretta NUMERIC(24, 6), 
+	nr_incidenza_oneri_sicurezza_prezzo NUMERIC(24, 6), 
+	dt_creation TIMESTAMP WITHOUT TIME ZONE DEFAULT clock_timestamp() NOT NULL, 
+	tx_creation_by VARCHAR(4000) DEFAULT CURRENT_USER NOT NULL, 
+	dt_update TIMESTAMP WITHOUT TIME ZONE DEFAULT clock_timestamp() NOT NULL, 
+	tx_update_by VARCHAR(4000) DEFAULT CURRENT_USER NOT NULL, 
+	CONSTRAINT pk_dim_firenze_articoli PRIMARY KEY (id_firenze_articolo), 
+	CONSTRAINT uq_dim_firenze_articoli_codice UNIQUE NULLS NOT DISTINCT (cd_codice_completo), 
+	CONSTRAINT uq_dim_firenze_articoli_riga UNIQUE NULLS NOT DISTINCT (nr_anno, nr_riga_file)
+);
+
+CREATE INDEX ix_dim_firenze_articoli_cd_codice_completo ON hcbi_ras.dim_firenze_articoli (cd_codice_completo);
