@@ -48,6 +48,14 @@
         "Table Name": "frontiera_anag_area_vasta",
         "Statement Type": "INSERT"
       }
+    },
+    {
+      "name": "Log failure and stop",
+      "type": "org.apache.nifi.processors.standard.LogMessage",
+      "properties": {
+        "Log Level": "warn",
+        "Log Message": "POC_FRONTIERA_ANAG_AREA_VASTA failed; see bulletins and processor logs."
+      }
     }
   ],
   "controllerServices": [
@@ -91,6 +99,34 @@
       "to": "Insert into hcbi",
       "relationships": [
         "success"
+      ]
+    },
+    {
+      "from": "Prepare truncate SQL",
+      "to": "Log failure and stop",
+      "relationships": [
+        "failure"
+      ]
+    },
+    {
+      "from": "Truncate target",
+      "to": "Log failure and stop",
+      "relationships": [
+        "failure"
+      ]
+    },
+    {
+      "from": "Query rasop",
+      "to": "Log failure and stop",
+      "relationships": [
+        "failure"
+      ]
+    },
+    {
+      "from": "Insert into hcbi",
+      "to": "Log failure and stop",
+      "relationships": [
+        "failure"
       ]
     }
   ]

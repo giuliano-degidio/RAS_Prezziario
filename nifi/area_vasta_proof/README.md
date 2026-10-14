@@ -15,6 +15,7 @@ ORDER BY id;
 ```
 
 4. Inserts the result into `hcbi_ras.frontiera_anag_area_vasta`.
+5. If a processor fails, logs a warning and then stops.
 
 ## Files
 
@@ -57,6 +58,6 @@ python3 deploy_area_vasta.py
 
 ## After deploy
 
-Open NiFi, locate the process group `POC_FRONTIERA_ANAG_AREA_VASTA`, then start the processors in order.
+Open NiFi, locate the process group `POC_FRONTIERA_ANAG_AREA_VASTA`, then start the processors in order. If a processor goes into failure, the flow now routes it to a warning log processor and ends there.
 
 If the PostgreSQL JDBC driver is not already available in NiFi, download the PostgreSQL JDBC jar, place it in a readable path, and set `POSTGRES_JDBC_JAR` before running the deployer.

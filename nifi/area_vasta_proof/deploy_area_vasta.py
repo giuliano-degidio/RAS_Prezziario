@@ -222,17 +222,17 @@ def main():
     p2 = create_processor(
         token, pg_id, 'Prepare truncate SQL', 'org.apache.nifi.processors.standard.ReplaceText', 300.0, 0.0,
         {'Evaluation Mode': 'Entire text', 'Replacement Strategy': 'Always Replace', 'Replacement Value': SPEC['truncateSql']},
-        ['failure']
+        []
     )
     p3 = create_processor(
         token, pg_id, 'Truncate target', 'org.apache.nifi.processors.standard.PutSQL', 600.0, 0.0,
         {'JDBC Connection Pool': 'hcbi-dbcp'},
-        ['failure']
+        []
     )
     p4 = create_processor(
         token, pg_id, 'Query rasop', 'org.apache.nifi.processors.standard.ExecuteSQL', 900.0, 0.0,
         {'JDBC Connection Pool': 'rasop-dbcp', 'SQL select query': SPEC['sourceQuery']},
-        ['failure']
+        []
     )
     p5 = create_processor(
         token, pg_id, 'Insert into hcbi', 'org.apache.nifi.processors.standard.PutDatabaseRecord', 1200.0, 0.0,
@@ -243,17 +243,29 @@ def main():
             'Table Name': 'frontiera_anag_area_vasta',
             'Statement Type': 'INSERT',
         },
-        ['success', 'failure']
+        ['success']
+    )
+    p6 = create_processor(
+        token, pg_id, 'Log failure and stop', 'org.apache.nifi.processors.standard.LogMessage', 1500.0, 0.0,
+        {
+            'Log Level': 'warn',
+            'Log Message': 'POC_FRONTIERA_ANAG_AREA_VASTA failed; see bulletins and processor logs.'
+        },
+        ['success']
     )
 
     connect(token, pg_id, p1, p2, ['success'])
     connect(token, pg_id, p2, p3, ['success'])
     connect(token, pg_id, p3, p4, ['success'])
     connect(token, pg_id, p4, p5, ['success'])
+    connect(token, pg_id, p2, p6, ['failure'])
+    connect(token, pg_id, p3, p6, ['failure'])
+    connect(token, pg_id, p4, p6, ['failure'])
+    connect(token, pg_id, p5, p6, ['failure'])
 
     print('Created process group: {0}'.format(pg_id))
     print('Controller services enabled: {0}, {1}, {2}'.format(rasop_service, hcbi_service, avro_reader))
-    print('Processors: {0}, {1}, {2}, {3}, {4}'.format(p1, p2, p3, p4, p5))
+    print('Processors: {0}, {1}, {2}, {3}, {4}, {5}'.format(p1, p2, p3, p4, p5, p6))
     print('Next: open NiFi UI, enter the group, and start the processors in order.')
     return 0
 
