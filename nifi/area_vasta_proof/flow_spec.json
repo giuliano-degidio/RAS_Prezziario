@@ -27,7 +27,7 @@
       "name": "Truncate target",
       "type": "org.apache.nifi.processors.standard.PutSQL",
       "properties": {
-        "JDBC Connection Pool": "hcbi-dbcp"
+        "JDBC Connection Pooling Service": "hcbi-dbcp"
       }
     },
     {
@@ -112,7 +112,8 @@
       "from": "Truncate target",
       "to": "Log failure and stop",
       "relationships": [
-        "failure"
+        "failure",
+        "retry"
       ]
     },
     {

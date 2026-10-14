@@ -58,6 +58,6 @@ python3 deploy_area_vasta.py
 
 ## After deploy
 
-Open NiFi, locate the process group `POC_FRONTIERA_ANAG_AREA_VASTA`, then start the processors in order. If a processor goes into failure, the flow now routes it to a warning log processor and ends there.
+Open NiFi, locate the process group `POC_FRONTIERA_ANAG_AREA_VASTA`, then start the processors in order. If a processor goes into failure, the flow now routes it to a warning log processor and ends there; for `PutSQL`, the `retry` path is routed there too.
 
 If the PostgreSQL JDBC driver is not already available in NiFi, download the PostgreSQL JDBC jar, place it in a readable path, and set `POSTGRES_JDBC_JAR` before running the deployer.

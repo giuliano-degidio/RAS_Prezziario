@@ -226,7 +226,7 @@ def main():
     )
     p3 = create_processor(
         token, pg_id, 'Truncate target', 'org.apache.nifi.processors.standard.PutSQL', 600.0, 0.0,
-        {'JDBC Connection Pool': 'hcbi-dbcp'},
+        {'JDBC Connection Pooling Service': 'hcbi-dbcp'},
         []
     )
     p4 = create_processor(
@@ -259,7 +259,7 @@ def main():
     connect(token, pg_id, p3, p4, ['success'])
     connect(token, pg_id, p4, p5, ['success'])
     connect(token, pg_id, p2, p6, ['failure'])
-    connect(token, pg_id, p3, p6, ['failure'])
+    connect(token, pg_id, p3, p6, ['failure', 'retry'])
     connect(token, pg_id, p4, p6, ['failure'])
     connect(token, pg_id, p5, p6, ['failure'])
 
