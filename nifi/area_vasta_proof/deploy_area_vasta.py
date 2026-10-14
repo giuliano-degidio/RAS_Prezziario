@@ -59,6 +59,15 @@ if missing:
     print('Missing environment variables: ' + ', '.join(missing), file=sys.stderr)
     sys.exit(2)
 
+if not POSTGRES_JDBC_JAR:
+    print('Missing environment variable: POSTGRES_JDBC_JAR (path to the PostgreSQL JDBC driver jar)', file=sys.stderr)
+    sys.exit(2)
+
+jar_path = Path(POSTGRES_JDBC_JAR)
+if not jar_path.is_file():
+    print('POSTGRES_JDBC_JAR does not point to an existing file: {0}'.format(POSTGRES_JDBC_JAR), file=sys.stderr)
+    sys.exit(2)
+
 API_BASE = NIFI_BASE_URL.replace('/nifi', '/nifi-api') if NIFI_BASE_URL.endswith('/nifi') else NIFI_BASE_URL.rstrip('/') + '/nifi-api'
 CLIENT_ID = str(uuid.uuid4())
 

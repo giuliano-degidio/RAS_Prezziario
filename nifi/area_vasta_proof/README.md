@@ -24,7 +24,7 @@ ORDER BY id;
 ## Prerequisites
 
 - NiFi server reachable at `https://192.168.248.135:8443/nifi`
-- The PostgreSQL JDBC driver available to NiFi
+- The PostgreSQL JDBC driver JAR available on disk and readable by NiFi
 - Database credentials supplied at deploy time through environment variables
 
 ## Environment variables
@@ -42,8 +42,8 @@ export HCBI_JDBC_URL='jdbc:postgresql://192.168.248.135:5432/hcbi'
 export HCBI_DB_USER='hcbi'
 export HCBI_DB_PASSWORD='***'
 
-# optional, only if needed by your NiFi install
-export POSTGRES_JDBC_JAR='/opt/nifi-2.11.0/lib/postgresql.jar'
+# required if the driver is not already bundled in NiFi
+export POSTGRES_JDBC_JAR='/opt/nifi-2.11.0/lib/postgresql-42.7.4.jar'
 
 # set to 1 only if you want SSL verification enabled
 export NIFI_VERIFY_SSL=0
@@ -59,4 +59,4 @@ python3 deploy_area_vasta.py
 
 Open NiFi, locate the process group `POC_FRONTIERA_ANAG_AREA_VASTA`, then start the processors in order.
 
-If the PostgreSQL JDBC driver is not already available in NiFi, place the jar in a path readable by NiFi and set `POSTGRES_JDBC_JAR` before running the deployer.
+If the PostgreSQL JDBC driver is not already available in NiFi, download the PostgreSQL JDBC jar, place it in a readable path, and set `POSTGRES_JDBC_JAR` before running the deployer.
