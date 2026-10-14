@@ -87,7 +87,7 @@ def http_request(path, method='GET', data=None, headers=None, form=None, content
 
 def login():
     status, _, body = http_request('/access/token', method='POST', form={'username': NIFI_USERNAME, 'password': NIFI_PASSWORD})
-    if status != 200:
+    if status not in (200, 201):
         raise SystemExit('NiFi login failed ({0}): {1}'.format(status, body.decode('utf-8', errors='replace')))
     return body.decode('utf-8').strip()
 
@@ -95,7 +95,7 @@ def login():
 def api(path, method='GET', token=None, payload=None):
     headers = {}
     if token:
-        headers['Authorization'] = 'Bearer {0}'.format(token)
+        headers['Authorization'] = 'Bearer ' + token
     data = None
     if payload is not None:
         data = json.dumps(payload).encode('utf-8')
