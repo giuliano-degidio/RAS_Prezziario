@@ -34,7 +34,7 @@
       "name": "Query rasop",
       "type": "org.apache.nifi.processors.standard.ExecuteSQL",
       "properties": {
-        "JDBC Connection Pool": "rasop-dbcp",
+        "JDBC Connection Pooling Service": "rasop-dbcp",
         "SQL select query": "SELECT id::character varying(100) AS id, nome::character varying(100) AS nome FROM public.aree_vaste ORDER BY id;"
       }
     },
@@ -120,14 +120,16 @@
       "from": "Query rasop",
       "to": "Log failure and stop",
       "relationships": [
-        "failure"
+        "failure",
+        "retry"
       ]
     },
     {
       "from": "Insert into hcbi",
       "to": "Log failure and stop",
       "relationships": [
-        "failure"
+        "failure",
+        "retry"
       ]
     }
   ]

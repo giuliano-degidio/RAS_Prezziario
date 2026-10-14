@@ -186,7 +186,7 @@ def main():
     pg_id = create_process_group(token, root_id, SPEC['name'], 0.0, 0.0)
 
     jar = POSTGRES_JDBC_JAR
-    rasop_service = create_controller_service(
+    rasop_service_id = create_controller_service(
         token, pg_id, 'rasop-dbcp', 'org.apache.nifi.dbcp.DBCPConnectionPool',
         {
             'Database Connection URL': RASOP_JDBC_URL,
@@ -196,7 +196,7 @@ def main():
             'Password': RASOP_DB_PASSWORD,
         }
     )
-    hcbi_service = create_controller_service(
+    hcbi_service_id = create_controller_service(
         token, pg_id, 'hcbi-dbcp', 'org.apache.nifi.dbcp.DBCPConnectionPool',
         {
             'Database Connection URL': HCBI_JDBC_URL,
@@ -206,14 +206,14 @@ def main():
             'Password': HCBI_DB_PASSWORD,
         }
     )
-    avro_reader = create_controller_service(
+    avro_reader_id = create_controller_service(
         token, pg_id, 'avro-reader', 'org.apache.nifi.avro.AvroReader',
         {}
     )
 
-    enable_service(token, rasop_service)
-    enable_service(token, hcbi_service)
-    enable_service(token, avro_reader)
+    enable_service(token, rasop_service_id)
+    enable_service(token, hcbi_service_id)
+    enable_service(token, avro_reader_id)
 
     p1 = create_processor(
         token, pg_id, 'Generate trigger', 'org.apache.nifi.processors.standard.GenerateFlowFile', 0.0, 0.0,
@@ -226,19 +226,19 @@ def main():
     )
     p3 = create_processor(
         token, pg_id, 'Truncate target', 'org.apache.nifi.processors.standard.PutSQL', 600.0, 0.0,
-        {'JDBC Connection Pooling Service': 'hcbi-dbcp'},
+        {'JDBC Connection Pooling Service': hcbi_service_id},
         []
     )
     p4 = create_processor(
         token, pg_id, 'Query rasop', 'org.apache.nifi.processors.standard.ExecuteSQL', 900.0, 0.0,
-        {'JDBC Connection Pool': 'rasop-dbcp', 'SQL select query': SPEC['sourceQuery']},
+        {'JDBC Connection Pooling Service': rasop_service_id, 'SQL select query': SPEC['sourceQuery']},
         []
     )
     p5 = create_processor(
         token, pg_id, 'Insert into hcbi', 'org.apache.nifi.processors.standard.PutDatabaseRecord', 1200.0, 0.0,
         {
-            'Database Connection Pooling Service': 'hcbi-dbcp',
-            'Record Reader': 'avro-reader',
+            'Database Connection Pooling Service': hcbi_service_id,
+            'Record Reader': avro_reader_id,
             'Schema Name': 'hcbi_ras',
             'Table Name': 'frontiera_anag_area_vasta',
             'Statement Type': 'INSERT',
@@ -260,11 +260,11 @@ def main():
     connect(token, pg_id, p4, p5, ['success'])
     connect(token, pg_id, p2, p6, ['failure'])
     connect(token, pg_id, p3, p6, ['failure', 'retry'])
-    connect(token, pg_id, p4, p6, ['failure'])
-    connect(token, pg_id, p5, p6, ['failure'])
+    connect(token, pg_id, p4, p6, ['failure', 'retry'])
+    connect(token, pg_id, p5, p6, ['failure', 'retry'])
 
     print('Created process group: {0}'.format(pg_id))
-    print('Controller services enabled: {0}, {1}, {2}'.format(rasop_service, hcbi_service, avro_reader))
+    print('Controller services enabled: {0}, {1}, {2}'.format(rasop_service_id, hcbi_service_id, avro_reader_id))
     print('Processors: {0}, {1}, {2}, {3}, {4}, {5}'.format(p1, p2, p3, p4, p5, p6))
     print('Next: open NiFi UI, enter the group, and start the processors in order.')
     return 0
