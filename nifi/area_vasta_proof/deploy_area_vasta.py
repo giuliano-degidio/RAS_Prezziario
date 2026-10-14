@@ -16,13 +16,11 @@ Optional:
   NIFI_VERIFY_SSL    0 to skip SSL verification (default: 0)
 """
 
-from __future__ import annotations
-
-import base64
 import json
 import os
 import ssl
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
@@ -34,7 +32,7 @@ SPEC = json.loads(SPEC_PATH.read_text(encoding='utf-8'))
 NIFI_BASE_URL = os.environ.get('NIFI_BASE_URL', '').rstrip('/')
 NIFI_USERNAME = os.environ.get('NIFI_USERNAME', '')
 NIFI_PASSWORD = os.environ.get('NIFI_PASSWORD', '')
-VERIFY_SSL = os.environ.get('NIFI_VERIFY_SSL', '0') not in {'0', 'false', 'False', ''}
+VERIFY_SSL = os.environ.get('NIFI_VERIFY_SSL', '0') not in ('0', 'false', 'False', '')
 
 RASOP_JDBC_URL = os.environ.get('RASOP_JDBC_URL', '')
 RASOP_DB_USER = os.environ.get('RASOP_DB_USER', '')
@@ -69,10 +67,8 @@ if not VERIFY_SSL:
     ctx = ssl._create_unverified_context()
 
 
-def http_request(path: str, method: str = 'GET', data: bytes | None = None,
-                 headers: dict[str, str] | None = None, form: dict[str, str] | None = None,
-                 content_type: str | None = None) -> tuple[int, dict[str, str], bytes]:
-    url = f'{API_BASE}{path}'
+def http_request(path, method='GET', data=None, headers=None, form=None, content_type=None):
+    url = API_BASE + path
     req_headers = headers.copy() if headers else {}
     if content_type:
         req_headers['Content-Type'] = content_type
@@ -89,43 +85,43 @@ def http_request(path: str, method: str = 'GET', data: bytes | None = None,
         return e.code, dict(e.headers.items()), e.read()
 
 
-def login() -> str:
+def login():
     status, _, body = http_request('/access/token', method='POST', form={'username': NIFI_USERNAME, 'password': NIFI_PASSWORD})
     if status != 200:
-        raise SystemExit(f'NiFi login failed ({status}): {body.decode("utf-8", errors="replace")}')
+        raise SystemExit('NiFi login failed ({0}): {1}'.format(status, body.decode('utf-8', errors='replace')))
     return body.decode('utf-8').strip()
 
 
-def api(path: str, method: str = 'GET', token: str | None = None, payload: dict | None = None):
+def api(path, method='GET', token=None, payload=None):
     headers = {}
     if token:
-        headers['Authorization'] = f'Bearer {token}'
+        headers['Authorization'] = 'Bearer {0}'.format(token)
     data = None
     if payload is not None:
         data = json.dumps(payload).encode('utf-8')
         headers['Content-Type'] = 'application/json'
     status, _, body = http_request(path, method=method, data=data, headers=headers)
     if status >= 400:
-        raise SystemExit(f'{method} {path} failed ({status}): {body.decode("utf-8", errors="replace")}')
+        raise SystemExit('{0} {1} failed ({2}): {3}'.format(method, path, status, body.decode('utf-8', errors='replace')))
     return json.loads(body.decode('utf-8')) if body else {}
 
 
-def get_root_group_id(token: str) -> str:
+def get_root_group_id(token):
     # In NiFi the root group id is exposed as "root" in the REST path.
     api('/flow/process-groups/root', token=token)
     return 'root'
 
 
-def create_process_group(token: str, parent_id: str, name: str, x: float, y: float) -> str:
+def create_process_group(token, parent_id, name, x, y):
     body = {
         'revision': {'clientId': CLIENT_ID, 'version': 0},
         'component': {'name': name, 'position': {'x': x, 'y': y}}
     }
-    resp = api(f'/process-groups/{parent_id}/process-groups', method='POST', token=token, payload=body)
+    resp = api('/process-groups/{0}/process-groups'.format(parent_id), method='POST', token=token, payload=body)
     return resp['component']['id']
 
 
-def create_controller_service(token: str, pg_id: str, name: str, typ: str, properties: dict) -> str:
+def create_controller_service(token, pg_id, name, typ, properties):
     body = {
         'revision': {'clientId': CLIENT_ID, 'version': 0},
         'component': {
@@ -135,11 +131,11 @@ def create_controller_service(token: str, pg_id: str, name: str, typ: str, prope
             'comments': SPEC['description'],
         }
     }
-    resp = api(f'/process-groups/{pg_id}/controller-services', method='POST', token=token, payload=body)
+    resp = api('/process-groups/{0}/controller-services'.format(pg_id), method='POST', token=token, payload=body)
     return resp['component']['id']
 
 
-def create_processor(token: str, pg_id: str, name: str, typ: str, x: float, y: float, properties: dict, auto_terms: list[str], scheduling_period: str = '0 sec') -> str:
+def create_processor(token, pg_id, name, typ, x, y, properties, auto_terms, scheduling_period='0 sec'):
     body = {
         'revision': {'clientId': CLIENT_ID, 'version': 0},
         'component': {
@@ -151,11 +147,11 @@ def create_processor(token: str, pg_id: str, name: str, typ: str, x: float, y: f
             'autoTerminatedRelationships': auto_terms,
         }
     }
-    resp = api(f'/process-groups/{pg_id}/processors', method='POST', token=token, payload=body)
+    resp = api('/process-groups/{0}/processors'.format(pg_id), method='POST', token=token, payload=body)
     return resp['component']['id']
 
 
-def connect(token: str, pg_id: str, source_id: str, dest_id: str, rels: list[str]):
+def connect(token, pg_id, source_id, dest_id, rels):
     body = {
         'revision': {'clientId': CLIENT_ID, 'version': 0},
         'component': {
@@ -166,15 +162,15 @@ def connect(token: str, pg_id: str, source_id: str, dest_id: str, rels: list[str
             'bends': []
         }
     }
-    api(f'/process-groups/{pg_id}/connections', method='POST', token=token, payload=body)
+    api('/process-groups/{0}/connections'.format(pg_id), method='POST', token=token, payload=body)
 
 
-def enable_service(token: str, service_id: str):
+def enable_service(token, service_id):
     body = {'revision': {'clientId': CLIENT_ID, 'version': 0}, 'state': 'ENABLED'}
-    api(f'/controller-services/{service_id}/run-status', method='PUT', token=token, payload=body)
+    api('/controller-services/{0}/run-status'.format(service_id), method='PUT', token=token, payload=body)
 
 
-def main() -> int:
+def main():
     token = login()
     root_id = get_root_group_id(token)
 
@@ -246,9 +242,9 @@ def main() -> int:
     connect(token, pg_id, p3, p4, ['success'])
     connect(token, pg_id, p4, p5, ['success'])
 
-    print('Created process group:', pg_id)
-    print('Controller services enabled:', rasop_service, hcbi_service, avro_reader)
-    print('Processors:', p1, p2, p3, p4, p5)
+    print('Created process group: {0}'.format(pg_id))
+    print('Controller services enabled: {0}, {1}, {2}'.format(rasop_service, hcbi_service, avro_reader))
+    print('Processors: {0}, {1}, {2}, {3}, {4}'.format(p1, p2, p3, p4, p5))
     print('Next: open NiFi UI, enter the group, and start the processors in order.')
     return 0
 
