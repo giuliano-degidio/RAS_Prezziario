@@ -1,0 +1,23 @@
+CREATE TABLE hcbi_utility.etl_frontiere_config (
+	frontiera_code VARCHAR(100) NOT NULL,
+	description VARCHAR(500) NOT NULL,
+	enabled BOOLEAN NOT NULL DEFAULT false,
+	execution_order INTEGER NOT NULL DEFAULT 100,
+	source_service_code VARCHAR(50) NOT NULL,
+	source_query TEXT NOT NULL,
+	target_schema VARCHAR(63) NOT NULL DEFAULT 'hcbi_ras'::character varying,
+	target_table VARCHAR(63) NOT NULL,
+	truncate_before_load BOOLEAN NOT NULL DEFAULT true,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+	created_by VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+	updated_by VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+	CONSTRAINT pk_etl_frontiere_config PRIMARY KEY (frontiera_code),
+	CONSTRAINT ck_etl_frontiere_config_code CHECK (frontiera_code ~ '^[A-Z][A-Z0-9_]{1,99}$'::text),
+	CONSTRAINT ck_etl_frontiere_config_full_refresh CHECK (truncate_before_load = true),
+	CONSTRAINT ck_etl_frontiere_config_order CHECK (execution_order >= 0),
+	CONSTRAINT ck_etl_frontiere_config_source_query CHECK (length(btrim(source_query)) > 0),
+	CONSTRAINT ck_etl_frontiere_config_source_service CHECK (source_service_code ~ '^[A-Z][A-Z0-9_]{1,49}$'::text),
+	CONSTRAINT ck_etl_frontiere_config_target_schema CHECK (target_schema = 'hcbi_ras'::text),
+	CONSTRAINT ck_etl_frontiere_config_target_table CHECK (target_table ~ '^[a-z_][a-z0-9_]{0,62}$'::text)
+);
