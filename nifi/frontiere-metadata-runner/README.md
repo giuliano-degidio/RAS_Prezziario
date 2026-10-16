@@ -190,14 +190,37 @@ La procedura `hcbi_utility.prc_execute_chain(1)` gestisce autonomamente le propr
 
 A ogni ciclo completo viene assegnato un UUID generato da `run_frontiere.py`.
 
-Lo stesso UUID viene utilizzato per correlare:
+Lo stesso UUID viene utilizzato per correlare l'intera esecuzione ETL attraverso:
 
 ```text
 hcbi_utility.etl_frontiere_run.nifi_flowfile_uuid
 hcbi_utility.etl_dwh_refresh_run.execution_uuid
+hcbi_utility.log_chain.etl_execution_uuid
 ```
 
 Il nome `nifi_flowfile_uuid` viene mantenuto per compatibilità con la tabella esistente, ma il valore rappresenta l'UUID dell'esecuzione complessiva generato dal runner.
+
+Durante l'esecuzione di `hcbi_utility.prc_execute_chain(1)`, l'UUID viene recuperato tramite la funzione:
+
+```sql
+hcbi_utility.get_current_etl_execution_uuid()
+```
+
+La funzione individua l'ultima esecuzione presente in `hcbi_utility.etl_dwh_refresh_run` con:
+
+- `status = 'RUNNING'`;
+- `ended_at IS NULL`;
+- valore massimo di `run_id`.
+
+L'`execution_uuid` individuato viene registrato in `hcbi_utility.log_chain.etl_execution_uuid`.
+
+In questo modo lo stesso UUID correla il caricamento delle frontiere, l'esecuzione del refresh DWH e il log interno della chain.
+
+La funzione è non bloccante. Se non individua un UUID valido oppure si verifica un errore durante il recupero, restituisce lo UUID zero:
+
+```text
+00000000-0000-0000-0000-000000000000
+```
 
 Non viene più utilizzata la property NiFi:
 
@@ -842,8 +865,8 @@ tail -n 100 \
 ### T09 - UUID condiviso
 
 - Input: ciclo completo riuscito.
-- Atteso: stesso UUID sulle frontiere e sul refresh DWH.
-- Verifica: join tra le due tabelle di log.
+- Atteso: stesso UUID in `etl_frontiere_run.nifi_flowfile_uuid`, `etl_dwh_refresh_run.execution_uuid` e `log_chain.etl_execution_uuid`.
+- Verifica: correlazione tra le tre tabelle di log tramite l'UUID dell'esecuzione e assenza dello UUID zero in `log_chain` per il ciclo completato.
 
 ### T10 - Restart a sistema inattivo
 
