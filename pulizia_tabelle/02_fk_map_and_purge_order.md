@@ -56,13 +56,14 @@ Define the purge order for cleanup scripts so that referential integrity is pres
 - `srv_config_step`
 - `srv_metadata_copy_src`
 
-### Runtime/log tables with FKs
+### Runtime / log tables with FKs
 
 - `etl_frontiere_run` -> `etl_frontiere_config`
 - `etl_frontiere_execution_lock` -> `etl_frontiere_run`, `etl_frontiere_config`
+- `etl_dwh_refresh_run` -> no FK dependencies
 - `log_chain` -> `srv_config_chain`
-- `srv_config_step` -> `srv_config_chain`
 - `log_step` -> `srv_config_step`
+- `srv_config_step` -> `srv_config_chain`
 - `srv_metadata_copy_src` -> `srv_config_chain`
 
 ## Cleanup order proposal
@@ -104,7 +105,17 @@ Delete the child dimensions before the root dimensions:
 6. `dim_tipologia`
 7. `dim_versione`
 
-### Phase D - root dimensions
+### Phase D - runtime / log tables
+
+Delete the runtime log tables before the root dimensions:
+
+1. `etl_frontiere_execution_lock`
+2. `etl_frontiere_run`
+3. `etl_dwh_refresh_run`
+4. `log_chain`
+5. `log_step`
+
+### Phase E - root dimensions
 
 Delete the root dimensions last:
 
@@ -121,4 +132,4 @@ Delete the root dimensions last:
 
 - The FK-free groups can be collapsed into fewer scripts if needed.
 - The final cleanup scripts should preserve dimension seed / tappo rows.
-- `hcbi_utility` runtime/log tables are documented here only for reference; they are not part of the data cleanup scope.
+- `hcbi_utility` runtime/log tables are included in the cleanup scope; configuration tables remain excluded.

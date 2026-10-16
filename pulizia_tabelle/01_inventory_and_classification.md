@@ -12,7 +12,7 @@ Scope: database `hcbi`, schemas `hcbi_ras` and `hcbi_utility`.
 ## Classification rules used
 
 - **config**: not to be touched by cleanup scripts.
-- **runtime_log / runtime_lock**: operational tables; keep separate from data-layer cleanup.
+- **runtime_log / runtime_lock**: operational tables; included in the cleanup scripts, but still kept separate from configuration tables.
 - **frontiera / src_tmp / staging / work / fact / dwh_* / dimension**: in-scope for cleanup planning.
 - **dimension**: cleanup must preserve seed/tappo rows.
 - **support**: manually verified in later steps.
@@ -27,7 +27,7 @@ Scope: database `hcbi`, schemas `hcbi_ras` and `hcbi_utility`.
 - `srv_config_step`
 - `srv_metadata_copy_src`
 
-### Runtime tables
+### Runtime / log tables
 
 - `etl_frontiere_execution_lock`
 - `etl_frontiere_run`
@@ -95,5 +95,5 @@ Prefix: `fct_*`
 
 1. Configuration tables in `hcbi_utility` are excluded from cleanup scripts.
 2. Dimension tables are in scope, but seed/tappo rows must be preserved.
-3. Runtime tables and locks are intentionally kept separate from the data purge plan.
+3. Runtime tables and locks are included in the cleanup plan, but configuration tables remain excluded.
 4. The `dwh_*` domain tables will be refined in the FK/order step.
