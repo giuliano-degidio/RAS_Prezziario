@@ -15,13 +15,13 @@
        id_anag_area_vasta
 
    Contesto applicativo:
-       anno, addendum
+       anno, cd_versione
 
    Business key contestualizzata:
-       anno, addendum, ds_nome
+       anno, cd_versione, ds_nome
 
    Chiave di lookup da DIM_PROVINCIA:
-       anno, addendum, id_sorgente_area_vasta
+       anno, cd_versione, id_sorgente_area_vasta
 
    Strategia di caricamento:
        - materializzazione della sorgente;
@@ -35,7 +35,7 @@
    Assunzioni da validare:
        1. ID_ANAG_AREA_VASTA viene mantenuto uguale all'identificativo
           della sorgente DWH e non viene rigenerato con una sequence.
-       2. ANNO, ADDENDUM e DS_NOME costituiscono la candidate key funzionale.
+       2. ANNO, CD_VERSIONE e DS_NOME costituiscono la candidate key funzionale.
        2. Non e' richiesta storicizzazione SCD di tipo 2.
        2. Non sono richiesti delete fisici o logici dei record non piu'
           presenti nella sorgente.
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS hcbi_ras.dim_area_vasta
 (
     id_anag_area_vasta bigint NOT NULL,
     anno integer NOT NULL,
-    addendum integer NOT NULL,
+    cd_versione smallint NOT NULL,
     id_sorgente_area_vasta bigint,
     ds_nome character varying(100)
         COLLATE pg_catalog."default" NOT NULL,
@@ -69,11 +69,11 @@ CREATE TABLE IF NOT EXISTS hcbi_ras.dim_area_vasta
     CONSTRAINT pk_dim_area_vasta
         PRIMARY KEY (id_anag_area_vasta),
     CONSTRAINT uq_dim_area_vasta
-        UNIQUE NULLS NOT DISTINCT (anno, addendum, ds_nome),
+        UNIQUE NULLS NOT DISTINCT (anno, cd_versione, ds_nome),
 
     CONSTRAINT uq_dim_area_vasta_sorgente
         UNIQUE NULLS NOT DISTINCT
-        (anno, addendum, id_sorgente_area_vasta)
+        (anno, cd_versione, id_sorgente_area_vasta)
 )
 TABLESPACE pg_default;
 
@@ -101,14 +101,14 @@ IS 'Chiave primaria globale della dimensione, mantenuta dalla chiave DWH sorgent
 COMMENT ON COLUMN hcbi_ras.dim_area_vasta.anno
 IS 'Anno del contesto applicativo usato nelle lookup contestualizzate.';
 
-COMMENT ON COLUMN hcbi_ras.dim_area_vasta.addendum
-IS 'Addendum del contesto applicativo usato nelle lookup contestualizzate.';
+COMMENT ON COLUMN hcbi_ras.dim_area_vasta.cd_versione
+IS 'Cd_versione del contesto applicativo usato nelle lookup contestualizzate.';
 
 COMMENT ON COLUMN hcbi_ras.dim_area_vasta.id_sorgente_area_vasta
-IS 'Identificativo dell''area vasta nel sistema sorgente, univoco nel contesto anno/addendum.';
+IS 'Identificativo dell''area vasta nel sistema sorgente, univoco nel contesto anno/cd_versione.';
 
 COMMENT ON COLUMN hcbi_ras.dim_area_vasta.ds_nome
-IS 'Nome dell''area vasta; business key contestualizzata con anno e addendum.';
+IS 'Nome dell''area vasta; business key contestualizzata con anno e cd_versione.';
 
 COMMENT ON COLUMN hcbi_ras.dim_area_vasta.dt_creation
 IS 'Timestamp di creazione del record nella dimensione.';
@@ -128,17 +128,17 @@ IS 'Chiave primaria tecnica della dimensione: id_anag_area_vasta.';
 
 COMMENT ON CONSTRAINT uq_dim_area_vasta
 ON hcbi_ras.dim_area_vasta
-IS 'Business key contestualizzata della dimensione: anno, addendum, ds_nome.';
+IS 'Business key contestualizzata della dimensione: anno, cd_versione, ds_nome.';
 
 COMMENT ON CONSTRAINT uq_dim_area_vasta_sorgente
 ON hcbi_ras.dim_area_vasta
-IS 'Chiave di lookup contestualizzata: anno, addendum, id_sorgente_area_vasta.';
+IS 'Chiave di lookup contestualizzata: anno, cd_versione, id_sorgente_area_vasta.';
 
 /* =====================================================================
    RECORD TECNICI DIM_AREA_VASTA
    ===================================================================== */
 INSERT INTO hcbi_ras.dim_area_vasta
-(id_anag_area_vasta, anno, addendum, id_sorgente_area_vasta, ds_nome,
+(id_anag_area_vasta, anno, cd_versione, id_sorgente_area_vasta, ds_nome,
  dt_creation, tx_creation_by, dt_update, tx_update_by)
 VALUES
 (0, 0, 0, 0, 'NON DISPONIBILE',
@@ -332,7 +332,7 @@ BEGIN
     SELECT
         src.id_anag_area_vasta,
         src.anno,
-        src.addendum,
+        src.cd_versione,
         src.id_sorgente_area_vasta,
         src.ds_nome
     FROM hcbi_ras.dwh_anag_area_vasta AS src;
@@ -344,13 +344,13 @@ BEGIN
 
     /* Verifica preventiva della business key sorgente. */
     CREATE UNIQUE INDEX tmp_dim_area_vasta_bk
-    ON hcbi_ras.tmp_dim_area_vasta (anno, addendum, ds_nome)
+    ON hcbi_ras.tmp_dim_area_vasta (anno, cd_versione, ds_nome)
     NULLS NOT DISTINCT;
 
     /* Verifica preventiva della chiave usata dalla lookup DIM_PROVINCIA. */
     CREATE UNIQUE INDEX tmp_dim_area_vasta_sorgente_uq
     ON hcbi_ras.tmp_dim_area_vasta
-        (anno, addendum, id_sorgente_area_vasta)
+        (anno, cd_versione, id_sorgente_area_vasta)
     NULLS NOT DISTINCT;
 
     ANALYZE hcbi_ras.tmp_dim_area_vasta;
@@ -362,7 +362,7 @@ BEGIN
     /* Aggiorna soltanto gli attributi effettivamente variati. */
     UPDATE hcbi_ras.dim_area_vasta AS d
        SET anno = src.anno,
-           addendum = src.addendum,
+           cd_versione = src.cd_versione,
            id_sorgente_area_vasta = src.id_sorgente_area_vasta,
            ds_nome = src.ds_nome,
            dt_update = clock_timestamp(),
@@ -371,12 +371,12 @@ BEGIN
      WHERE d.id_anag_area_vasta = src.id_anag_area_vasta
        AND ROW(
             d.anno,
-            d.addendum,
+            d.cd_versione,
             d.id_sorgente_area_vasta,
             d.ds_nome
        ) IS DISTINCT FROM ROW(
             src.anno,
-            src.addendum,
+            src.cd_versione,
             src.id_sorgente_area_vasta,
             src.ds_nome
        );
@@ -386,7 +386,7 @@ BEGIN
     INSERT INTO hcbi_ras.dim_area_vasta (
         id_anag_area_vasta,
         anno,
-        addendum,
+        cd_versione,
         id_sorgente_area_vasta,
         ds_nome,
         dt_creation,
@@ -397,7 +397,7 @@ BEGIN
     SELECT
         src.id_anag_area_vasta,
         src.anno,
-        src.addendum,
+        src.cd_versione,
         src.id_sorgente_area_vasta,
         src.ds_nome,
         clock_timestamp(),
@@ -678,20 +678,20 @@ IS 'Finalizza il caricamento DIM_AREA_VASTA e aggiorna le statistiche della tabe
 -- HAVING count(*) > 1;
 
 /* 2. Univocita della business key contestualizzata. Atteso: zero righe. */
--- SELECT anno, addendum, ds_nome, count(*)
+-- SELECT anno, cd_versione, ds_nome, count(*)
 -- FROM hcbi_ras.dim_area_vasta
--- GROUP BY anno, addendum, ds_nome
+-- GROUP BY anno, cd_versione, ds_nome
 -- HAVING count(*) > 1;
 
 /* 3. Univocita della chiave usata da DIM_PROVINCIA. Atteso: zero righe. */
--- SELECT anno, addendum, id_sorgente_area_vasta, count(*)
+-- SELECT anno, cd_versione, id_sorgente_area_vasta, count(*)
 -- FROM hcbi_ras.dim_area_vasta
 -- WHERE id_sorgente_area_vasta IS NOT NULL
--- GROUP BY anno, addendum, id_sorgente_area_vasta
+-- GROUP BY anno, cd_versione, id_sorgente_area_vasta
 -- HAVING count(*) > 1;
 
 /* 4. Presenza dei record tecnici globali. Atteso: due righe. */
--- SELECT id_anag_area_vasta, anno, addendum, id_sorgente_area_vasta, ds_nome
+-- SELECT id_anag_area_vasta, anno, cd_versione, id_sorgente_area_vasta, ds_nome
 -- FROM hcbi_ras.dim_area_vasta
 -- WHERE id_anag_area_vasta IN (0, -1)
 -- ORDER BY id_anag_area_vasta;

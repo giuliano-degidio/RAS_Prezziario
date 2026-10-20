@@ -19,10 +19,10 @@
        id_anag_provincia
 
    Contesto applicativo:
-       anno, addendum
+       anno, cd_versione
 
    Business key contestualizzata:
-       anno, addendum, cd_provincia
+       anno, cd_versione, cd_provincia
 
    Relazione dimensionale:
        dim_provincia.id_area_vasta
@@ -31,8 +31,8 @@
    Regola di lookup AREA VASTA:
        dwh_anag_provincia.anno
            = dim_area_vasta.anno
-       dwh_anag_provincia.addendum
-           = dim_area_vasta.addendum
+       dwh_anag_provincia.cd_versione
+           = dim_area_vasta.cd_versione
        dwh_anag_provincia.id_sorgente_area_vasta
            = dim_area_vasta.id_sorgente_area_vasta
 
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS hcbi_ras.dim_provincia
 (
     id_anag_provincia bigint NOT NULL,
     anno integer NOT NULL,
-    addendum integer NOT NULL,
+    cd_versione smallint NOT NULL,
     cd_provincia character varying(2)
         COLLATE pg_catalog."default" NOT NULL,
     ds_nome character varying(100)
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS hcbi_ras.dim_provincia
         PRIMARY KEY (id_anag_provincia),
 
     CONSTRAINT uq_dim_provincia
-        UNIQUE NULLS NOT DISTINCT (anno, addendum, cd_provincia),
+        UNIQUE NULLS NOT DISTINCT (anno, cd_versione, cd_provincia),
 
     CONSTRAINT fk_dim_provincia_area_vasta
         FOREIGN KEY (id_area_vasta)
@@ -145,11 +145,11 @@ IS 'Chiave primaria globale della dimensione, mantenuta dalla chiave DWH sorgent
 COMMENT ON COLUMN hcbi_ras.dim_provincia.anno
 IS 'Anno del contesto applicativo usato per le lookup contestualizzate.';
 
-COMMENT ON COLUMN hcbi_ras.dim_provincia.addendum
-IS 'Addendum del contesto applicativo usato per le lookup contestualizzate.';
+COMMENT ON COLUMN hcbi_ras.dim_provincia.cd_versione
+IS 'Cd_versione del contesto applicativo usato per le lookup contestualizzate.';
 
 COMMENT ON COLUMN hcbi_ras.dim_provincia.cd_provincia
-IS 'Codice della provincia; business key contestualizzata con anno e addendum.';
+IS 'Codice della provincia; business key contestualizzata con anno e cd_versione.';
 
 COMMENT ON COLUMN hcbi_ras.dim_provincia.ds_nome
 IS 'Descrizione della provincia.';
@@ -181,7 +181,7 @@ IS 'Chiave primaria della dimensione: id_anag_provincia.';
 
 COMMENT ON CONSTRAINT uq_dim_provincia
 ON hcbi_ras.dim_provincia
-IS 'Business key contestualizzata della dimensione: anno, addendum, cd_provincia.';
+IS 'Business key contestualizzata della dimensione: anno, cd_versione, cd_provincia.';
 
 COMMENT ON CONSTRAINT fk_dim_provincia_area_vasta
 ON hcbi_ras.dim_provincia
@@ -191,7 +191,7 @@ IS 'Relazione tra DIM_PROVINCIA e DIM_AREA_VASTA tramite id_area_vasta.';
    RECORD TECNICI DIM_PROVINCIA
    ===================================================================== */
 INSERT INTO hcbi_ras.dim_provincia
-(id_anag_provincia,anno,addendum,cd_provincia,ds_nome,id_area_vasta,
+(id_anag_provincia,anno,cd_versione,cd_provincia,ds_nome,id_area_vasta,
  fl_provincia_principale_regionale,fl_provincia_principale_area_vasta,
  dt_creation,tx_creation_by,dt_update,tx_update_by)
 VALUES
@@ -425,7 +425,7 @@ BEGIN
         SELECT 1
         FROM hcbi_ras.dim_area_vasta AS dav
         WHERE dav.id_sorgente_area_vasta IS NOT NULL
-        GROUP BY dav.anno, dav.addendum, dav.id_sorgente_area_vasta
+        GROUP BY dav.anno, dav.cd_versione, dav.id_sorgente_area_vasta
         HAVING count(*) > 1
     ) THEN
         RAISE EXCEPTION
@@ -434,7 +434,7 @@ BEGIN
                 MESSAGE =
                     'Lookup DIM_AREA_VASTA non deterministica',
                 DETAIL =
-                    'Esistono piu record con lo stesso anno, addendum e id_sorgente_area_vasta.',
+                    'Esistono piu record con lo stesso anno, cd_versione e id_sorgente_area_vasta.',
                 HINT =
                     'Rimuovere i duplicati o introdurre un vincolo univoco sulla chiave di lookup.';
     END IF;
@@ -452,7 +452,7 @@ BEGIN
     SELECT
         src.id_anag_provincia,
         src.anno,
-        src.addendum,
+        src.cd_versione,
         src.cd_provincia,
         src.ds_nome,
         CASE
@@ -467,7 +467,7 @@ BEGIN
     FROM hcbi_ras.dwh_anag_provincia AS src
     LEFT JOIN hcbi_ras.dim_area_vasta AS dav
         ON dav.anno = src.anno
-       AND dav.addendum = src.addendum
+       AND dav.cd_versione = src.cd_versione
        AND dav.id_sorgente_area_vasta = src.id_sorgente_area_vasta
     WHERE nullif(btrim(src.cd_provincia::text),'') IS NOT NULL;
 
@@ -478,7 +478,7 @@ BEGIN
 
     /* Verifica preventiva della business key sorgente. */
     CREATE UNIQUE INDEX tmp_dim_provincia_bk
-    ON hcbi_ras.tmp_dim_provincia (anno, addendum, cd_provincia)
+    ON hcbi_ras.tmp_dim_provincia (anno, cd_versione, cd_provincia)
     NULLS NOT DISTINCT;
 
     ANALYZE hcbi_ras.tmp_dim_provincia;
@@ -490,7 +490,7 @@ BEGIN
 
     UPDATE hcbi_ras.dim_provincia AS d
        SET anno = src.anno,
-           addendum = src.addendum,
+           cd_versione = src.cd_versione,
            cd_provincia = src.cd_provincia,
            ds_nome = src.ds_nome,
            id_area_vasta = src.id_area_vasta,
@@ -504,7 +504,7 @@ BEGIN
      WHERE d.id_anag_provincia = src.id_anag_provincia
        AND ROW(
             d.anno,
-            d.addendum,
+            d.cd_versione,
             d.cd_provincia,
             d.ds_nome,
             d.id_area_vasta,
@@ -512,7 +512,7 @@ BEGIN
             d.fl_provincia_principale_area_vasta
        ) IS DISTINCT FROM ROW(
             src.anno,
-            src.addendum,
+            src.cd_versione,
             src.cd_provincia,
             src.ds_nome,
             src.id_area_vasta,
@@ -525,7 +525,7 @@ BEGIN
     INSERT INTO hcbi_ras.dim_provincia (
         id_anag_provincia,
         anno,
-        addendum,
+        cd_versione,
         cd_provincia,
         ds_nome,
         id_area_vasta,
@@ -539,7 +539,7 @@ BEGIN
     SELECT
         src.id_anag_provincia,
         src.anno,
-        src.addendum,
+        src.cd_versione,
         src.cd_provincia,
         src.ds_nome,
         src.id_area_vasta,
@@ -823,7 +823,7 @@ IS 'Finalizza il caricamento DIM_PROVINCIA e aggiorna le statistiche della tabel
    ===================================================================== */
 
 /* 0. Verifica record tecnici DIM_PROVINCIA. */
--- SELECT id_anag_provincia,anno,addendum,cd_provincia,ds_nome,id_area_vasta
+-- SELECT id_anag_provincia,anno,cd_versione,cd_provincia,ds_nome,id_area_vasta
 -- FROM hcbi_ras.dim_provincia WHERE id_anag_provincia IN (0,-1);
 /* 0B. Codici provincia NULL o vuoti ricondotti al tappo 0. */
 -- SELECT count(*) FROM hcbi_ras.dwh_anag_provincia
@@ -835,19 +835,19 @@ IS 'Finalizza il caricamento DIM_PROVINCIA e aggiorna le statistiche della tabel
 
 /* 2. Verifica di eventuali chiavi lookup duplicate. */
 -- SELECT
---     anno, addendum, id_sorgente_area_vasta,
+--     anno, cd_versione, id_sorgente_area_vasta,
 --     count(*) AS numero_record
 -- FROM hcbi_ras.dim_area_vasta
 -- WHERE id_sorgente_area_vasta IS NOT NULL
--- GROUP BY anno, addendum, id_sorgente_area_vasta
+-- GROUP BY anno, cd_versione, id_sorgente_area_vasta
 -- HAVING count(*) > 1;
 
 /* 3. Verifica dei duplicati sulla business key della dimensione. */
 -- SELECT
---     anno, addendum, cd_provincia,
+--     anno, cd_versione, cd_provincia,
 --     count(*) AS numero_record
 -- FROM hcbi_ras.dim_provincia
--- GROUP BY anno, addendum, cd_provincia
+-- GROUP BY anno, cd_versione, cd_provincia
 -- HAVING count(*) > 1;
 
 /* 4. Verifica degli orfani rispetto a DIM_AREA_VASTA. */
@@ -871,13 +871,13 @@ IS 'Finalizza il caricamento DIM_PROVINCIA e aggiorna le statistiche della tabel
 -- SELECT
 --     src.id_anag_provincia,
 --     src.anno,
---     src.addendum,
+--     src.cd_versione,
 --     src.cd_provincia,
 --     src.id_sorgente_area_vasta
 -- FROM hcbi_ras.dwh_anag_provincia AS src
 -- LEFT JOIN hcbi_ras.dim_area_vasta AS dav
 --     ON dav.anno = src.anno
---    AND dav.addendum = src.addendum
+--    AND dav.cd_versione = src.cd_versione
 --    AND dav.id_sorgente_area_vasta = src.id_sorgente_area_vasta
 -- WHERE src.id_sorgente_area_vasta IS NOT NULL
 --   AND dav.id_anag_area_vasta IS NULL;
@@ -890,7 +890,7 @@ IS 'Finalizza il caricamento DIM_PROVINCIA e aggiorna le statistiche della tabel
 -- HAVING count(*) > 1;
 
 /* 9. Verifica business key contestualizzata. */
--- SELECT anno, addendum, cd_provincia, count(*)
+-- SELECT anno, cd_versione, cd_provincia, count(*)
 -- FROM hcbi_ras.dim_provincia
--- GROUP BY anno, addendum, cd_provincia
+-- GROUP BY anno, cd_versione, cd_provincia
 -- HAVING count(*) > 1;
