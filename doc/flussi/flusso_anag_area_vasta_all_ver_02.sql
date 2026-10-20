@@ -14,16 +14,24 @@
        id   -> id_sorgente_area_vasta
        nome -> ds_nome
        anno -> anno
-       addendum -> addendum
+      addendum -> addendum (frontiera/src_tmp, invariato)
+
+   NOTA (correzione):
+       Nel passaggio da v_src_tmp_anag_area_vasta a stg_anag_area_vasta
+       il campo addendum viene rinominato in cd_versione e convertito da
+       testo a SMALLINT (anziche INTEGER). La propagazione riguarda
+       anche stg_anag_area_vasta_rej, dwh_anag_area_vasta,
+       v_dwh_anag_area_vasta, le relative constraint/indici e le
+       procedure STG/DWH.
 
    Business key:
-       anno, addendum, ds_nome
+       anno, cd_versione, ds_nome
 
    Grain:
-       una riga per anno, addendum e area vasta.
+       una riga per anno, cd_versione e area vasta.
 
    Regola di obbligatorieta:
-       anno, addendum e ds_nome sono obbligatori.
+       anno, cd_versione e ds_nome sono obbligatori.
        id_sorgente_area_vasta e' facoltativo; se valorizzato deve essere
        convertibile in BIGINT.
 
@@ -134,7 +142,7 @@ TO hcbi_utility;
 CREATE TABLE IF NOT EXISTS hcbi_ras.stg_anag_area_vasta
 (
     anno integer NOT NULL,
-    addendum integer NOT NULL,
+    cd_versione smallint NOT NULL,
     id_sorgente_area_vasta bigint,
     ds_nome character varying(100) NOT NULL
 );
@@ -160,7 +168,7 @@ TO hcbi_utility;
 CREATE TABLE IF NOT EXISTS hcbi_ras.stg_anag_area_vasta_rej
 (
     anno character varying(20),
-    addendum character varying(20),
+    cd_versione character varying(20),
     id_sorgente_area_vasta character varying(100),
     ds_nome character varying(100),
     tx_motivo_scarto character varying(4000)
@@ -188,7 +196,7 @@ TO hcbi_utility;
 CREATE TABLE IF NOT EXISTS hcbi_ras.dwh_anag_area_vasta
 (
     anno integer NOT NULL,
-    addendum integer NOT NULL,
+    cd_versione smallint NOT NULL,
     id_anag_area_vasta bigint NOT NULL
         DEFAULT nextval(
             'hcbi_ras.seq_dwh_anag_area_vasta'::regclass
@@ -205,11 +213,11 @@ CREATE TABLE IF NOT EXISTS hcbi_ras.dwh_anag_area_vasta
         NOT NULL DEFAULT CURRENT_USER,
     dt_reciclo timestamp without time zone,
     CONSTRAINT pk_dwh_anag_area_vasta
-        PRIMARY KEY (anno, addendum, id_anag_area_vasta),
+        PRIMARY KEY (anno, cd_versione, id_anag_area_vasta),
     CONSTRAINT uq_dwh_anag_area_vasta
-        UNIQUE NULLS NOT DISTINCT (anno, addendum, ds_nome),
+        UNIQUE NULLS NOT DISTINCT (anno, cd_versione, ds_nome),
     CONSTRAINT uq_dwh_anag_area_vasta_sorgente
-        UNIQUE NULLS NOT DISTINCT (anno, addendum, id_sorgente_area_vasta)
+        UNIQUE NULLS NOT DISTINCT (anno, cd_versione, id_sorgente_area_vasta)
 );
 
 ALTER TABLE hcbi_ras.dwh_anag_area_vasta
@@ -229,7 +237,7 @@ TO hcbi_utility;
 CREATE OR REPLACE VIEW hcbi_ras.v_dwh_anag_area_vasta AS
 SELECT
     s.anno,
-    s.addendum,
+    s.cd_versione,
     s.id_sorgente_area_vasta,
     s.ds_nome
 FROM hcbi_ras.stg_anag_area_vasta AS s;
@@ -287,6 +295,25 @@ EXCEPTION
 END;
 $function$;
 ALTER FUNCTION hcbi_ras.try_integer(text) OWNER TO hcbi_ras;
+
+CREATE OR REPLACE FUNCTION hcbi_ras.try_smallint(p_value text)
+RETURNS smallint
+LANGUAGE plpgsql
+IMMUTABLE
+PARALLEL UNSAFE
+RETURNS NULL ON NULL INPUT
+SECURITY INVOKER
+SET search_path TO pg_catalog
+AS $function$
+BEGIN
+    RETURN p_value::smallint;
+EXCEPTION
+    WHEN invalid_text_representation
+      OR numeric_value_out_of_range THEN
+        RETURN NULL;
+END;
+$function$;
+ALTER FUNCTION hcbi_ras.try_smallint(text) OWNER TO hcbi_ras;
 
 /* =====================================================================
    PROCEDURA STG INITIALIZE
@@ -457,11 +484,11 @@ BEGIN
     WITH src AS MATERIALIZED (
         SELECT
             f.anno AS anno_raw,
-            f.addendum AS addendum_raw,
+            f.addendum AS cd_versione_raw,
             f.id_sorgente_area_vasta AS id_sorgente_area_vasta_raw,
             f.ds_nome AS ds_nome_raw,
             nullif(btrim(f.anno), '') AS anno_txt,
-            nullif(btrim(f.addendum), '') AS addendum_txt,
+            nullif(btrim(f.addendum), '') AS cd_versione_txt,
             nullif(btrim(f.id_sorgente_area_vasta), '')
                 AS id_sorgente_area_vasta_txt,
             nullif(btrim(f.ds_nome), '') AS ds_nome_txt,
@@ -473,7 +500,7 @@ BEGIN
         SELECT
             s.*,
             hcbi_ras.try_integer(s.anno_txt) AS anno_cv,
-            hcbi_ras.try_integer(s.addendum_txt) AS addendum_cv,
+            hcbi_ras.try_smallint(s.cd_versione_txt) AS cd_versione_cv,
             hcbi_ras.try_bigint(s.id_sorgente_area_vasta_txt)
                 AS id_sorgente_area_vasta_cv
         FROM src AS s
@@ -483,12 +510,12 @@ BEGIN
         CASE
             WHEN c.anno_txt IS NULL THEN 'anno obbligatorio'
             WHEN c.anno_cv IS NULL THEN 'anno non convertibile in integer o fuori dominio'
-            WHEN c.addendum_txt IS NULL THEN 'addendum obbligatorio'
-            WHEN c.addendum_cv IS NULL THEN 'addendum non convertibile in integer o fuori dominio'
+            WHEN c.cd_versione_txt IS NULL THEN 'cd_versione obbligatorio'
+            WHEN c.cd_versione_cv IS NULL THEN 'cd_versione non convertibile in smallint o fuori dominio'
             WHEN c.ds_nome_txt IS NULL THEN
                 'ds_nome obbligatorio'
             WHEN c.duplicate_count > 1 THEN
-                'Chiave duplicata nella sorgente: (anno, addendum, ds_nome)'
+                'Chiave duplicata nella sorgente: (anno, cd_versione, ds_nome)'
             WHEN length(c.ds_nome_txt) > 100 THEN
                 'ds_nome eccede 100 caratteri'
             WHEN c.id_sorgente_area_vasta_txt IS NOT NULL
@@ -503,21 +530,21 @@ BEGIN
     FROM hcbi_ras.tmp_anag_area_vasta_classificata;
 
     INSERT INTO hcbi_ras.stg_anag_area_vasta (
-        anno, addendum, id_sorgente_area_vasta, ds_nome
+        anno, cd_versione, id_sorgente_area_vasta, ds_nome
     )
     SELECT
-        c.anno_cv, c.addendum_cv, c.id_sorgente_area_vasta_cv, c.ds_nome_txt
+        c.anno_cv, c.cd_versione_cv, c.id_sorgente_area_vasta_cv, c.ds_nome_txt
     FROM hcbi_ras.tmp_anag_area_vasta_classificata AS c
     WHERE c.tx_motivo_scarto IS NULL;
 
     GET DIAGNOSTICS v_inserted = ROW_COUNT;
 
     INSERT INTO hcbi_ras.stg_anag_area_vasta_rej (
-        anno, addendum, id_sorgente_area_vasta, ds_nome,
+        anno, cd_versione, id_sorgente_area_vasta, ds_nome,
         tx_motivo_scarto
     )
     SELECT
-        c.anno_raw, c.addendum_raw, c.id_sorgente_area_vasta_raw,
+        c.anno_raw, c.cd_versione_raw, c.id_sorgente_area_vasta_raw,
         c.ds_nome_raw, c.tx_motivo_scarto
     FROM hcbi_ras.tmp_anag_area_vasta_classificata AS c
     WHERE c.tx_motivo_scarto IS NOT NULL;
@@ -842,11 +869,11 @@ BEGIN
 
     CREATE TABLE hcbi_ras.tmp_dwh_anag_area_vasta AS
     SELECT
-        s.anno, s.addendum, s.id_sorgente_area_vasta, s.ds_nome
+        s.anno, s.cd_versione, s.id_sorgente_area_vasta, s.ds_nome
     FROM hcbi_ras.v_dwh_anag_area_vasta AS s;
 
     CREATE UNIQUE INDEX tmp_dwh_anag_area_vasta_uq
-    ON hcbi_ras.tmp_dwh_anag_area_vasta (anno, addendum, ds_nome)
+    ON hcbi_ras.tmp_dwh_anag_area_vasta (anno, cd_versione, ds_nome)
     NULLS NOT DISTINCT;
 
     ANALYZE hcbi_ras.tmp_dwh_anag_area_vasta;
@@ -861,7 +888,7 @@ BEGIN
            tx_update_by = p_ds_step_name
       FROM hcbi_ras.tmp_dwh_anag_area_vasta AS src
      WHERE dwh.anno = src.anno
-       AND dwh.addendum = src.addendum
+       AND dwh.cd_versione = src.cd_versione
        AND dwh.ds_nome = src.ds_nome
        AND dwh.id_sorgente_area_vasta
            IS DISTINCT FROM src.id_sorgente_area_vasta;
@@ -869,14 +896,14 @@ BEGIN
     GET DIAGNOSTICS v_updated = ROW_COUNT;
 
     INSERT INTO hcbi_ras.dwh_anag_area_vasta (
-        anno, addendum, id_sorgente_area_vasta, ds_nome,
+        anno, cd_versione, id_sorgente_area_vasta, ds_nome,
         dt_creation,
         tx_creation_by,
         dt_update,
         tx_update_by
     )
     SELECT
-        src.anno, src.addendum, src.id_sorgente_area_vasta, src.ds_nome,
+        src.anno, src.cd_versione, src.id_sorgente_area_vasta, src.ds_nome,
         clock_timestamp(),
         p_ds_step_name,
         clock_timestamp(),
@@ -1072,7 +1099,7 @@ IS 'Nome dell''area vasta e business key del flusso.';
 
 COMMENT ON CONSTRAINT uq_dwh_anag_area_vasta
 ON hcbi_ras.dwh_anag_area_vasta
-IS 'Business key del flusso ANAG_AREA_VASTA: anno, addendum, ds_nome.';
+IS 'Business key del flusso ANAG_AREA_VASTA: anno, cd_versione, ds_nome.';
 
 
 /* =====================================================================
