@@ -112,13 +112,14 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
 
     ----------------------------------------------------------------------
     -- Apertura del log della catena
-    --
+    -- Associa, se disponibile, l'UUID (etl_execution_uuid) dell'esecuzione orchestratore ETL corrente.
     -- id_log deve essere una colonna identity oppure avere un DEFAULT
     -- associato alla relativa sequence.
     ----------------------------------------------------------------------
-    INSERT INTO hcbi_utility.log_chain
+	INSERT INTO hcbi_utility.log_chain
     (
         id_chain,
+        etl_execution_uuid,
         dt_start,
         dt_end,
         ds_status,
@@ -129,6 +130,7 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
     VALUES
     (
         p_id_chain,
+        hcbi_utility.get_current_etl_execution_uuid(),
         clock_timestamp(),
         NULL,
         'IN_PROGRESS',
@@ -138,11 +140,6 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
     )
     RETURNING id_log
          INTO v_id_log;
-
-    RAISE NOTICE
-        'Avviata catena %, id_log=%',
-        p_id_chain,
-        v_id_log;
 
     ----------------------------------------------------------------------
     -- Elaborazione degli step attivi
@@ -786,3 +783,4 @@ EXCEPTION
         RETURN;
 END;
 $procedure$
+
