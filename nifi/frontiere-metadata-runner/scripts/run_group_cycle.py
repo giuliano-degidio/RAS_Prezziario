@@ -81,18 +81,34 @@ def log(msg):
     print(f"{datetime.now(timezone.utc).isoformat()} {msg}", flush=True)
 
 
-def poll_frontiere(control, cycle_start, poll_interval, quiet_seconds, phase_timeout):
+HEARTBEAT_SECONDS = 60.0
+
+
+def _connect_short(hcbi_conninfo):
+    # Connessione breve per singolo poll: evita di tenere aperta per ore una
+    # connessione che un firewall/NAT potrebbe droppare silenziosamente,
+    # lasciando lo script bloccato su un socket morto senza alcun errore.
+    return psycopg.connect(**hcbi_conninfo, autocommit=True, connect_timeout=10)
+
+
+def poll_frontiere(hcbi_conninfo, cycle_start, poll_interval, quiet_seconds, phase_timeout):
     deadline = time.monotonic() + phase_timeout
     last_seen_count = -1
     quiet_since = None
+    last_heartbeat = time.monotonic()
     while True:
-        with control.cursor() as cur:
-            cur.execute(
-                "SELECT frontiera_code, status, started_at, ended_at FROM hcbi_utility.etl_frontiere_run "
-                "WHERE started_at >= %s ORDER BY started_at",
-                (cycle_start,),
-            )
-            rows = cur.fetchall()
+        try:
+            with _connect_short(hcbi_conninfo) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT frontiera_code, status, started_at, ended_at FROM hcbi_utility.etl_frontiere_run "
+                        "WHERE started_at >= %s ORDER BY started_at",
+                        (cycle_start,),
+                    )
+                    rows = cur.fetchall()
+        except psycopg.OperationalError as exc:
+            log(f"[WARN] errore di connessione durante il poll frontiere, ritento: {exc}")
+            rows = []
         if rows:
             running = [r for r in rows if r[1] == "RUNNING"]
             if not running:
@@ -104,23 +120,36 @@ def poll_frontiere(control, cycle_start, poll_interval, quiet_seconds, phase_tim
             else:
                 quiet_since = None
                 last_seen_count = len(rows)
+        if time.monotonic() - last_heartbeat >= HEARTBEAT_SECONDS:
+            running_count = len([r for r in rows if r[1] == "RUNNING"]) if rows else 0
+            log(f"[heartbeat] fase frontiere: {len(rows)} run viste finora ({running_count} RUNNING), in attesa...")
+            last_heartbeat = time.monotonic()
         if time.monotonic() >= deadline:
             raise TimeoutError(f"Timeout in attesa fine fase frontiere ({phase_timeout}s); righe viste finora: {len(rows)}")
         time.sleep(poll_interval)
 
 
-def poll_dwh(control, cycle_start, poll_interval, phase_timeout):
+def poll_dwh(hcbi_conninfo, cycle_start, poll_interval, phase_timeout):
     deadline = time.monotonic() + phase_timeout
+    last_heartbeat = time.monotonic()
     while True:
-        with control.cursor() as cur:
-            cur.execute(
-                "SELECT execution_uuid, chain_id, status, started_at, ended_at, error_message "
-                "FROM hcbi_utility.etl_dwh_refresh_run WHERE started_at >= %s ORDER BY started_at DESC LIMIT 1",
-                (cycle_start,),
-            )
-            row = cur.fetchone()
+        try:
+            with _connect_short(hcbi_conninfo) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT execution_uuid, chain_id, status, started_at, ended_at, error_message "
+                        "FROM hcbi_utility.etl_dwh_refresh_run WHERE started_at >= %s ORDER BY started_at DESC LIMIT 1",
+                        (cycle_start,),
+                    )
+                    row = cur.fetchone()
+        except psycopg.OperationalError as exc:
+            log(f"[WARN] errore di connessione durante il poll DWH, ritento: {exc}")
+            row = None
         if row is not None and row[2] in TERMINAL_DWH:
             return row
+        if time.monotonic() - last_heartbeat >= HEARTBEAT_SECONDS:
+            log(f"[heartbeat] fase DWH: stato attuale={row[2] if row else 'nessuna riga ancora'}, in attesa...")
+            last_heartbeat = time.monotonic()
         if time.monotonic() >= deadline:
             if row is None:
                 raise TimeoutError(f"Timeout: nessuna riga in etl_dwh_refresh_run dopo {phase_timeout}s (il refresh DWH potrebbe non essere mai partito)")
@@ -148,42 +177,42 @@ def main():
     log(f"Process Group risolto: {args.pg_name} ({pg_id})")
 
     exit_code = 0
-    with psycopg.connect(**hcbi, autocommit=True) as control:
-        with control.cursor() as cur:
+    with _connect_short(hcbi) as conn:
+        with conn.cursor() as cur:
             cur.execute("SELECT clock_timestamp()")
             cycle_start = cur.fetchone()[0]
-        log(f"Cycle start (clock DB): {cycle_start.isoformat()}")
+    log(f"Cycle start (clock DB): {cycle_start.isoformat()}")
 
-        log("Avvio process group (state=RUNNING)...")
-        set_group_state(nifi, pg_id, "RUNNING")
+    log("Avvio process group (state=RUNNING)...")
+    set_group_state(nifi, pg_id, "RUNNING")
 
-        try:
-            frontiere_rows = poll_frontiere(control, cycle_start, args.poll_interval, args.quiet_seconds, args.frontiere_timeout)
-            summary = {}
-            for r in frontiere_rows:
-                summary[r[1]] = summary.get(r[1], 0) + 1
-            log(f"Fase frontiere conclusa: {len(frontiere_rows)} run, riepilogo={summary}")
-            for code, status, started_at, ended_at in frontiere_rows:
-                if status != "SUCCEEDED":
-                    log(f"  - {code}: {status} (started={started_at}, ended={ended_at})")
+    try:
+        frontiere_rows = poll_frontiere(hcbi, cycle_start, args.poll_interval, args.quiet_seconds, args.frontiere_timeout)
+        summary = {}
+        for r in frontiere_rows:
+            summary[r[1]] = summary.get(r[1], 0) + 1
+        log(f"Fase frontiere conclusa: {len(frontiere_rows)} run, riepilogo={summary}")
+        for code, status, started_at, ended_at in frontiere_rows:
+            if status != "SUCCEEDED":
+                log(f"  - {code}: {status} (started={started_at}, ended={ended_at})")
 
-            if summary.get("FAILED", 0) or summary.get("SKIPPED", 0):
-                log("Almeno una frontiera non e' SUCCEEDED: il refresh DWH chain 1 non viene avviato da run_frontiere.py (exit code != 0).")
-                exit_code = 3
-            else:
-                log("Tutte le frontiere SUCCEEDED, attendo l'esecuzione del refresh DWH chain 1...")
-                dwh_row = poll_dwh(control, cycle_start, args.poll_interval, args.dwh_timeout)
-                execution_uuid, chain_id, status, started_at, ended_at, error_message = dwh_row
-                log(f"Refresh DWH concluso: execution_uuid={execution_uuid} chain_id={chain_id} status={status} (started={started_at}, ended={ended_at})")
-                if status != "SUCCEEDED":
-                    log(f"Dettaglio errore: {error_message}")
-                    exit_code = 4
-        except TimeoutError as exc:
-            log(f"[TIMEOUT] {exc}")
-            exit_code = 5
-        except Exception as exc:
-            log(f"[ERRORE] {type(exc).__name__}: {exc}")
-            exit_code = 6
+        if summary.get("FAILED", 0) or summary.get("SKIPPED", 0):
+            log("Almeno una frontiera non e' SUCCEEDED: il refresh DWH chain 1 non viene avviato da run_frontiere.py (exit code != 0).")
+            exit_code = 3
+        else:
+            log("Tutte le frontiere SUCCEEDED, attendo l'esecuzione del refresh DWH chain 1...")
+            dwh_row = poll_dwh(hcbi, cycle_start, args.poll_interval, args.dwh_timeout)
+            execution_uuid, chain_id, status, started_at, ended_at, error_message = dwh_row
+            log(f"Refresh DWH concluso: execution_uuid={execution_uuid} chain_id={chain_id} status={status} (started={started_at}, ended={ended_at})")
+            if status != "SUCCEEDED":
+                log(f"Dettaglio errore: {error_message}")
+                exit_code = 4
+    except TimeoutError as exc:
+        log(f"[TIMEOUT] {exc}")
+        exit_code = 5
+    except Exception as exc:
+        log(f"[ERRORE] {type(exc).__name__}: {exc}")
+        exit_code = 6
 
     if not args.no_stop:
         log("Arresto process group (state=STOPPED)...")
