@@ -113,4 +113,56 @@
 - Il riavvio automatico al boot è stato configurato via systemd.
 - Rimaneva aperto il tema della configurazione TLS/SNI per accesso diretto via IP.
 
+## 12) Migrazione campo `addendum` → `cd_versione`
+
+- In quattro flussi sotto `doc/flussi/` il campo `addendum` doveva diventare
+  `cd_versione SMALLINT` a partire dallo staging in poi (lasciando invariato
+  il livello raw/frontiera dove presente):
+  - `flusso_anag_provincia_all_ver_03.sql`
+  - `flusso_anag_area_vasta_all_ver_02.sql`
+  - `flusso_dim_area_vasta_all_ver_02.sql`
+  - `flusso_dim_provincia_all_ver_05.sql`
+- Per ciascuno è stata prodotta una copia corretta `*_new.sql` nella cartella
+  `doc/flussi_appo/`, con analisi di impatto a cascata (es. il rename in
+  `dim_area_vasta` ha richiesto la correzione del JOIN nel flusso
+  `dim_provincia`) e, dove serviva, aggiunta la funzione di conversione
+  `hcbi_ras.try_smallint(text)`.
+- Nota: lo skill `dwh-flowforge-architect` richiesto per questi task non
+  risulta disponibile nell'ambiente; il lavoro è stato svolto manualmente con
+  gli strumenti DB/file/git standard.
+
+## 13) Progetto NiFi `frontiere-metadata-runner`: verifica e automazione
+
+- Verificata l'architettura del flusso NiFi (`FRONTIERE_METADATA_RUNNER.json`):
+  il refresh DWH (`CALL hcbi_utility.prc_execute_chain(1)`) parte solo dopo il
+  completamento con successo del caricamento frontiere, sia a livello di
+  topologia NiFi (relationship `output stream`) sia a livello di codice
+  (`run_dwh_refresh.py` legge l'UUID di esecuzione dallo stdin prodotto da
+  `run_frontiere.py` a fine ciclo) — nessuna esecuzione parallela o anticipata.
+- Chiarito che avviare il process group dalla UI ("Start" sul gruppo) non
+  causa parallelismo, ma che il processor `Manual trigger` è schedulato a
+  timer (`1 day`): se lasciato `Running` si riattiva automaticamente ogni 24
+  ore e va fermato esplicitamente dopo l'uso.
+- Aggiunti nuovi script in `nifi/frontiere-metadata-runner/`:
+  - `scripts/run_group_cycle.py` + `bin/run_group_cycle.sh`: avvia il process
+    group da riga di comando, attende il completamento leggendo le tabelle
+    `hcbi_utility.etl_frontiere_run` / `etl_dwh_refresh_run`, poi ferma il
+    gruppo automaticamente (con exit code distinti per i vari esiti/timeout).
+  - `scripts/check_group_status.py` + `bin/check_group_status.sh`: stato del
+    process group/processor (thread attivi, code, bulletin) via REST API.
+  - `bin/nifi_service.sh`: wrapper `systemctl`/`journalctl` per gestire il
+    servizio `nifi.service` (start/stop/restart/status/logs).
+- Creato il manuale operativo `doc/deploy/MANUALE_DEPLOY_NIFI.md`, pensato per
+  il sistemista: installazione NiFi, gestione servizio, setup filesystem/DB/
+  segreti/venv, deploy del process group, esecuzione da UI e da CLI,
+  monitoraggio, collaudo, troubleshooting e rollback. Verificato a DB live
+  (PostgreSQL 17.0) che gli oggetti di tracciamento in `hcbi_utility`
+  (`etl_frontiere_config`, `etl_frontiere_run`, `etl_frontiere_execution_lock`,
+  `etl_dwh_refresh_run`) sono allineati alle DDL già presenti in
+  `ddl/hcbi_utility/table/`.
+- Rilevata una cartella `appo-nifi/frontiere-metadata-runner` nel repo
+  (committata il 16/10), parzialmente divergente da
+  `nifi/frontiere-metadata-runner` (README diverso, script CLI mancanti):
+  probabile copia di staging residua, da valutare se rimuovere.
+
 Fine riepilogo.
