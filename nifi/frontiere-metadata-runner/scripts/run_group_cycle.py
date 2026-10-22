@@ -3,7 +3,9 @@
 completamento dell'intero ciclo (frontiere + refresh DWH chain 1) leggendo le
 tabelle di tracciamento hcbi_utility.etl_frontiere_run / etl_dwh_refresh_run, e
 ferma il process group al termine (o allo scadere del timeout).
-
+Uso tipico:
+cd /opt/etl/frontiere-metadata-runner/
+./bin/run_group_cycle.sh --frontiere-timeout 3600 --dwh-timeout 1800
 Riusa:
 - secrets_common.decrypt_payload / postgres_conninfo (config cifrata condivisa)
 - lo stesso pattern di autenticazione REST NiFi di deploy_nifi_flow.py
