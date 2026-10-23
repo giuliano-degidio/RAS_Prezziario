@@ -6,6 +6,7 @@ AS $procedure$
 	DECLARE
 		v_sql            TEXT;
 		v_running_count  BIGINT;
+		v_execution_uuid UUID;
 	BEGIN
 
 		p_id_log := NULL;
@@ -18,8 +19,18 @@ AS $procedure$
 		PERFORM hcbi_utility.ensure_dblink_logging();
 
 		/*
-		   Verifica catena già in esecuzione
-		*/
+		 * Legge l'UUID nella sessione chiamante prima dell'INSERT remoto.
+		 * Il valore non dipende da eventuali variabili di sessione del
+		 * collegamento LOG_DBLINK, che e' una sessione PostgreSQL distinta.
+		 */
+		v_execution_uuid := hcbi_utility.get_current_etl_execution_uuid();
+
+		/*
+		 * Difesa aggiuntiva contro chiamate dirette o versioni concorrenti.
+		 * prc_execute_chain acquisisce prima il lock advisory e riconcilia
+		 * i vecchi log IN_PROGRESS; qui si verifica comunque sul database
+		 * remoto che non sia rimasta un'esecuzione registrata come attiva.
+		 */
 		v_sql := format(
 			$SQL$
 			SELECT count(*)
@@ -46,25 +57,41 @@ AS $procedure$
 		END IF;
 
 		/*
-		   Inserimento LOG_CHAIN
-		*/
+		 * Apertura durevole del log della catena.
+		 * L'INSERT e' eseguito tramite LOG_DBLINK, in una sessione separata:
+		 * un rollback della transazione principale non annulla questa riga.
+		 * I valori sono formattati con %L per gestire UUID, identificativi
+		 * e testi in modo sicuro, inclusi NULL e caratteri speciali.
+		 */
 		v_sql := format(
 			$SQL$
 			INSERT INTO hcbi_utility.log_chain
 			(
 				id_chain,
+				etl_execution_uuid,
 				dt_start,
-				ds_status
+				dt_end,
+				ds_status,
+				tx_error_message,
+				dt_creation,
+				tx_creation_by
 			)
 			VALUES
 			(
-				%L,
+				%L::bigint,
+				%L::uuid,
 				clock_timestamp(),
-				'IN_PROGRESS'
+				NULL,
+				'IN_PROGRESS',
+				NULL,
+				clock_timestamp(),
+				%L::text
 			)
 			RETURNING id_log
 			$SQL$,
-			p_id_chain
+			p_id_chain,
+			v_execution_uuid,
+			session_user
 		);
 
 		SELECT r.id_log

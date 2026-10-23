@@ -6,8 +6,10 @@ AS $procedure$
 
 DECLARE
     r_step                       record;
+    r_stale_log                  record;
 
     v_id_log                     bigint;
+    v_step_log_id                bigint;
     v_ds_step_name               text;
     v_ds_dependency_status       text;
     v_result                     integer;
@@ -19,13 +21,13 @@ DECLARE
 
     v_sql                        text;
     v_error_message              text;
+    v_chain_error_message        text;
     v_error_detail               text;
     v_error_hint                 text;
     v_error_context              text;
     v_sqlstate                   text;
 
     v_chain_exists               boolean;
-    v_running_count              bigint;
     v_non_blocking_error         boolean := false;
     v_blocking_error             boolean := false;
 
@@ -87,59 +89,62 @@ BEGIN
     END IF;
 
     ----------------------------------------------------------------------
-    -- Controllo aggiuntivo sulle eventuali esecuzioni IN_PROGRESS
+    -- Riconciliazione di log IN_PROGRESS rimasti da esecuzioni interrotte
     ----------------------------------------------------------------------
-    SELECT count(*)
-      INTO v_running_count
-      FROM hcbi_utility.log_chain lc
-     WHERE lc.id_chain = p_id_chain
-       AND lc.ds_status = 'IN_PROGRESS';
+    -- A questo punto il lock advisory transazionale e' gia' stato acquisito.
+    -- Un'altra esecuzione conforme di questa procedura non puo' essere attiva
+    -- per la stessa catena; pertanto le righe IN_PROGRESS precedenti sono
+    -- residui di sessioni terminate prima della chiusura del log.
+    --
+    -- La lettura e la chiusura avvengono via LOG_DBLINK: oltre a sopravvivere
+    -- al rollback principale, la riconciliazione evita che un vecchio log
+    -- blocchi per sempre le esecuzioni successive.
+    ----------------------------------------------------------------------
+    PERFORM hcbi_utility.ensure_dblink_logging();
 
-    IF v_running_count > 0 THEN
-        RAISE EXCEPTION
-            USING
-                ERRCODE = '55006',
-                MESSAGE = format(
-                    'La catena %s presenta già %s esecuzione/i con stato IN_PROGRESS',
-                    p_id_chain,
-                    v_running_count
-                );
-    END IF;
---ATTENZIONE MODIFICARE LE SEGUENTI RIGHE DI TUNING IN BASE ALLE RISORSE DEL SERVER POSTGRES
+    v_sql := format(
+        $sql$
+        SELECT id_log
+          FROM hcbi_utility.log_chain
+         WHERE id_chain = %L::bigint
+           AND ds_status = 'IN_PROGRESS'
+         ORDER BY id_log
+        $sql$,
+        p_id_chain
+    );
+
+    FOR r_stale_log IN
+        SELECT stale.id_log
+          FROM hcbi_utility.dblink('LOG_DBLINK', v_sql)
+               AS stale(id_log bigint)
+    LOOP
+        CALL hcbi_utility.prc_end_chain(
+            r_stale_log.id_log,
+            'FAILED',
+            'Esecuzione precedente interrotta prima della chiusura del log; '
+            'nessun lock advisory attivo al momento della riconciliazione.'
+        );
+
+        RAISE WARNING
+            'Riga log IN_PROGRESS obsoleta riconciliata: catena %, id_log=%',
+            p_id_chain,
+            r_stale_log.id_log;
+    END LOOP;
+
+    --ATTENZIONE MODIFICARE LE SEGUENTI RIGHE DI TUNING IN BASE ALLE RISORSE DEL SERVER POSTGRES
 SET LOCAL work_mem = '64MB';
 SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
 --FINE ATTENZIONE MODIFICARE LE SEGUENTI RIGHE DI TUNING IN BASE ALLE RISORSE DEL SERVER POSTGRES
 
     ----------------------------------------------------------------------
-    -- Apertura del log della catena
-    -- Associa, se disponibile, l'UUID (etl_execution_uuid) dell'esecuzione orchestratore ETL corrente.
-    -- id_log deve essere una colonna identity oppure avere un DEFAULT
-    -- associato alla relativa sequence.
+    -- Apertura del log della catena nella sessione indipendente di loopback
     ----------------------------------------------------------------------
-	INSERT INTO hcbi_utility.log_chain
-    (
-        id_chain,
-        etl_execution_uuid,
-        dt_start,
-        dt_end,
-        ds_status,
-        tx_error_message,
-        dt_creation,
-        tx_creation_by
-    )
-    VALUES
-    (
-        p_id_chain,
-        hcbi_utility.get_current_etl_execution_uuid(),
-        clock_timestamp(),
-        NULL,
-        'IN_PROGRESS',
-        NULL,
-        clock_timestamp(),
-        session_user
-    )
-    RETURNING id_log
-         INTO v_id_log;
+    -- prc_start_chain crea la riga attraverso LOG_DBLINK e restituisce
+    -- l'identificativo generato. L'UUID viene calcolato nella sessione
+    -- chiamante e passato al comando remoto; non dipende quindi dallo stato
+    -- di sessione del collegamento dblink.
+    ----------------------------------------------------------------------
+    CALL hcbi_utility.prc_start_chain(p_id_chain, v_id_log);
 
     ----------------------------------------------------------------------
     -- Elaborazione degli step attivi
@@ -177,30 +182,27 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
                 r_step.id_step
             );
 
-            INSERT INTO hcbi_utility.log_step
-            (
-                id_chain_log,
-                id_chain,
-                id_step,
-                ds_step_name,
-                dt_start,
-                dt_end,
-                ds_status,
-                tx_error_message,
-                dt_creation,
-                tx_creation_by
-            )
-            VALUES
-            (
+            /*
+             * Registra il log dello step con la routine comune su LOG_DBLINK, quindi
+             * aggiorna esito e messaggio dallo stesso canale indipendente. Anche gli
+             * esiti FAILED e SKIPPED restano cosi disponibili dopo un rollback.
+             */
+            v_chain_error_message := v_error_message;
+            v_step_log_id := hcbi_utility.pkg_log_fnc_insert_log(
                 v_id_log,
                 p_id_chain,
                 r_step.id_step,
                 COALESCE(r_step.ds_step_name, 'STEP_' || r_step.id_step),
-                clock_timestamp(),
-                clock_timestamp(),
+                clock_timestamp()::timestamp,
+                clock_timestamp()::timestamp,
+                session_user
+            );
+
+            CALL hcbi_utility.pkg_log_prc_error_update_log(
+                v_step_log_id,
                 'FAILED',
                 left(v_error_message, 4000),
-                clock_timestamp(),
+                clock_timestamp()::timestamp,
                 session_user
             );
 
@@ -235,30 +237,27 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
                     COALESCE(v_ds_dependency_status, 'NON TROVATO')
                 );
 
-                INSERT INTO hcbi_utility.log_step
-                (
-                    id_chain_log,
-                    id_chain,
-                    id_step,
-                    ds_step_name,
-                    dt_start,
-                    dt_end,
-                    ds_status,
-                    tx_error_message,
-                    dt_creation,
-                    tx_creation_by
-                )
-                VALUES
-                (
+                /*
+                 * Registra il log dello step con la routine comune su LOG_DBLINK, quindi
+                 * aggiorna esito e messaggio dallo stesso canale indipendente. Anche gli
+                 * esiti FAILED e SKIPPED restano cosi disponibili dopo un rollback.
+                 */
+                v_chain_error_message := v_error_message;
+                v_step_log_id := hcbi_utility.pkg_log_fnc_insert_log(
                     v_id_log,
                     p_id_chain,
                     r_step.id_step,
                     COALESCE(r_step.ds_step_name, 'STEP_' || r_step.id_step),
-                    clock_timestamp(),
-                    clock_timestamp(),
+                    clock_timestamp()::timestamp,
+                    clock_timestamp()::timestamp,
+                    session_user
+                );
+
+                CALL hcbi_utility.pkg_log_prc_error_update_log(
+                    v_step_log_id,
                     'SKIPPED',
                     left(v_error_message, 4000),
-                    clock_timestamp(),
+                    clock_timestamp()::timestamp,
                     session_user
                 );
 
@@ -316,30 +315,27 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
                 v_schema_name
             );
 
-            INSERT INTO hcbi_utility.log_step
-            (
-                id_chain_log,
-                id_chain,
-                id_step,
-                ds_step_name,
-                dt_start,
-                dt_end,
-                ds_status,
-                tx_error_message,
-                dt_creation,
-                tx_creation_by
-            )
-            VALUES
-            (
+            /*
+             * Registra il log dello step con la routine comune su LOG_DBLINK, quindi
+             * aggiorna esito e messaggio dallo stesso canale indipendente. Anche gli
+             * esiti FAILED e SKIPPED restano cosi disponibili dopo un rollback.
+             */
+            v_chain_error_message := v_error_message;
+            v_step_log_id := hcbi_utility.pkg_log_fnc_insert_log(
                 v_id_log,
                 p_id_chain,
                 r_step.id_step,
                 COALESCE(r_step.ds_step_name, 'STEP_' || r_step.id_step),
-                clock_timestamp(),
-                clock_timestamp(),
+                clock_timestamp()::timestamp,
+                clock_timestamp()::timestamp,
+                session_user
+            );
+
+            CALL hcbi_utility.pkg_log_prc_error_update_log(
+                v_step_log_id,
                 'FAILED',
                 left(v_error_message, 4000),
-                clock_timestamp(),
+                clock_timestamp()::timestamp,
                 session_user
             );
 
@@ -359,30 +355,27 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
                 v_package_name
             );
 
-            INSERT INTO hcbi_utility.log_step
-            (
-                id_chain_log,
-                id_chain,
-                id_step,
-                ds_step_name,
-                dt_start,
-                dt_end,
-                ds_status,
-                tx_error_message,
-                dt_creation,
-                tx_creation_by
-            )
-            VALUES
-            (
+            /*
+             * Registra il log dello step con la routine comune su LOG_DBLINK, quindi
+             * aggiorna esito e messaggio dallo stesso canale indipendente. Anche gli
+             * esiti FAILED e SKIPPED restano cosi disponibili dopo un rollback.
+             */
+            v_chain_error_message := v_error_message;
+            v_step_log_id := hcbi_utility.pkg_log_fnc_insert_log(
                 v_id_log,
                 p_id_chain,
                 r_step.id_step,
                 COALESCE(r_step.ds_step_name, 'STEP_' || r_step.id_step),
-                clock_timestamp(),
-                clock_timestamp(),
+                clock_timestamp()::timestamp,
+                clock_timestamp()::timestamp,
+                session_user
+            );
+
+            CALL hcbi_utility.pkg_log_prc_error_update_log(
+                v_step_log_id,
                 'FAILED',
                 left(v_error_message, 4000),
-                clock_timestamp(),
+                clock_timestamp()::timestamp,
                 session_user
             );
 
@@ -449,8 +442,8 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
 			--
 			-- Qualsiasi modifica della firma dovrà essere verificata anche
 			-- nella EXECUTE dinamica e nella gestione di v_result.
-			----------------------------------------------------------------			
-			
+			----------------------------------------------------------------
+
             IF to_regprocedure(
                 format(
                     '%I.%I(bigint,bigint,bigint,character varying)',
@@ -464,30 +457,27 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
                     v_procedure_name
                 );
 
-                INSERT INTO hcbi_utility.log_step
-                (
-                    id_chain_log,
-                    id_chain,
-                    id_step,
-                    ds_step_name,
-                    dt_start,
-                    dt_end,
-                    ds_status,
-                    tx_error_message,
-                    dt_creation,
-                    tx_creation_by
-                )
-                VALUES
-                (
+                /*
+                 * Registra il log dello step con la routine comune su LOG_DBLINK, quindi
+                 * aggiorna esito e messaggio dallo stesso canale indipendente. Anche gli
+                 * esiti FAILED e SKIPPED restano cosi disponibili dopo un rollback.
+                 */
+                v_chain_error_message := v_error_message;
+                v_step_log_id := hcbi_utility.pkg_log_fnc_insert_log(
                     v_id_log,
                     p_id_chain,
                     r_step.id_step,
                     v_ds_step_name,
-                    clock_timestamp(),
-                    clock_timestamp(),
+                    clock_timestamp()::timestamp,
+                    clock_timestamp()::timestamp,
+                    session_user
+                );
+
+                CALL hcbi_utility.pkg_log_prc_error_update_log(
+                    v_step_log_id,
                     'FAILED',
                     left(v_error_message, 4000),
-                    clock_timestamp(),
+                    clock_timestamp()::timestamp,
                     session_user
                 );
 
@@ -629,20 +619,21 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
             -- Gestione dell'esito negativo della fase
             ----------------------------------------------------------------
             IF COALESCE(v_result, -1) < 0 THEN
-                UPDATE hcbi_utility.log_chain
-                   SET ds_status = 'FAILED',
-                       tx_error_message = left(
-                           COALESCE(
-                               v_error_message,
-                               format(
-                                   'Errore nella procedura %I.%I',
-                                   v_schema_name,
-                                   v_procedure_name
-                               )
-                           ),
-                           4000
-                       )
-                 WHERE id_log = v_id_log;
+                v_chain_error_message := v_error_message;
+                CALL hcbi_utility.prc_mark_chain_failed(
+                    v_id_log,
+                    left(
+                        COALESCE(
+                            v_error_message,
+                            format(
+                                'Errore nella procedura %I.%I',
+                                v_schema_name,
+                                v_procedure_name
+                            )
+                        ),
+                        4000
+                    )
+                );
 
                 IF COALESCE(r_step.fl_blocking, 'Y') = 'Y' THEN
                     v_blocking_error := true;
@@ -680,17 +671,17 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
     -- Chiusura della catena
     ----------------------------------------------------------------------
     IF v_blocking_error THEN
-        UPDATE hcbi_utility.log_chain
-           SET dt_end = clock_timestamp(),
-               ds_status = 'FAILED',
-               tx_error_message = left(
-                   COALESCE(
-                       tx_error_message,
-                       'Catena interrotta a causa di un errore bloccante'
-                   ),
-                   4000
-               )
-         WHERE id_log = v_id_log;
+        CALL hcbi_utility.prc_end_chain(
+            v_id_log,
+            'FAILED',
+            left(
+                COALESCE(
+                    v_chain_error_message,
+                    'Catena interrotta a causa di un errore bloccante'
+                ),
+                4000
+            )
+        );
 
         RAISE WARNING
             'Catena % terminata con stato FAILED, id_log=%',
@@ -702,17 +693,17 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
         -- La catena ha completato tutti gli step eseguibili, ma almeno
         -- uno step non bloccante è terminato in errore.
         ------------------------------------------------------------------
-        UPDATE hcbi_utility.log_chain
-           SET dt_end = clock_timestamp(),
-               ds_status = 'FAILED',
-               tx_error_message = left(
-                   COALESCE(
-                       tx_error_message,
-                       'Catena completata con uno o più errori non bloccanti'
-                   ),
-                   4000
-               )
-         WHERE id_log = v_id_log;
+        CALL hcbi_utility.prc_end_chain(
+            v_id_log,
+            'FAILED',
+            left(
+                COALESCE(
+                    v_chain_error_message,
+                    'Catena completata con piu errori non bloccanti'
+                ),
+                4000
+            )
+        );
 
         RAISE WARNING
             'Catena % completata con errori non bloccanti, id_log=%',
@@ -720,11 +711,11 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
             v_id_log;
 
     ELSE
-        UPDATE hcbi_utility.log_chain
-           SET dt_end = clock_timestamp(),
-               ds_status = 'COMPLETED',
-               tx_error_message = NULL
-         WHERE id_log = v_id_log;
+        CALL hcbi_utility.prc_end_chain(
+            v_id_log,
+            'COMPLETED',
+            NULL
+        );
 
         RAISE NOTICE
             'Catena % completata correttamente, id_log=%',
@@ -761,26 +752,38 @@ EXCEPTION
         );
 
         ------------------------------------------------------------------
-        -- Aggiornamento del log solo se il record di catena è già stato
-        -- creato.
+        -- Registra l'errore finale tramite la sessione indipendente.
+        -- Un eventuale guasto del canale di logging viene segnalato senza
+        -- sostituire il messaggio dell'errore originale.
         ------------------------------------------------------------------
         IF v_id_log IS NOT NULL THEN
-            UPDATE hcbi_utility.log_chain
-               SET dt_end = clock_timestamp(),
-                   ds_status = 'FAILED',
-                   tx_error_message = left(v_error_message, 4000)
-             WHERE id_log = v_id_log;
+            BEGIN
+                CALL hcbi_utility.prc_end_chain(
+                    v_id_log,
+                    'FAILED',
+                    left(v_error_message, 4000)
+                );
+            EXCEPTION
+                WHEN OTHERS THEN
+                    RAISE WARNING
+                        'Impossibile aggiornare il log della catena % (id_log=%). '
+                        'Errore logging SQLSTATE=%, messaggio=%',
+                        p_id_chain,
+                        v_id_log,
+                        SQLSTATE,
+                        SQLERRM;
+            END;
         END IF;
 
         RAISE WARNING '%', v_error_message;
 
         ------------------------------------------------------------------
-        -- Non viene eseguito RAISE senza argomenti.
-        --
-        -- In questo modo il log FAILED aggiornato sopra può essere
-        -- conservato dal chiamante quando la transazione viene confermata.
+        -- Non viene eseguito RAISE senza argomenti: si conserva il
+        -- comportamento corrente della procedura, che segnala l'esito
+        -- negativo tramite log e WARNING senza rilanciare l'eccezione.
+        -- Il log, essendo scritto via LOG_DBLINK, resta indipendente
+        -- dall'esito della transazione principale.
         ------------------------------------------------------------------
         RETURN;
 END;
 $procedure$
-
