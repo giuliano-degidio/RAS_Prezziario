@@ -89,11 +89,11 @@ BEGIN
     END IF;
 
     ----------------------------------------------------------------------
-    -- Riconciliazione di log IN_PROGRESS rimasti da esecuzioni interrotte
+    -- Riconciliazione di log RUNNING rimasti da esecuzioni interrotte
     ----------------------------------------------------------------------
     -- A questo punto il lock advisory transazionale e' gia' stato acquisito.
     -- Un'altra esecuzione conforme di questa procedura non puo' essere attiva
-    -- per la stessa catena; pertanto le righe IN_PROGRESS precedenti sono
+    -- per la stessa catena; pertanto le righe RUNNING precedenti sono
     -- residui di sessioni terminate prima della chiusura del log.
     --
     -- La lettura e la chiusura avvengono via LOG_DBLINK: oltre a sopravvivere
@@ -107,7 +107,7 @@ BEGIN
         SELECT id_log
           FROM hcbi_utility.log_chain
          WHERE id_chain = %L::bigint
-           AND ds_status = 'IN_PROGRESS'
+           AND ds_status = 'RUNNING'
          ORDER BY id_log
         $sql$,
         p_id_chain
@@ -126,7 +126,7 @@ BEGIN
         );
 
         RAISE WARNING
-            'Riga log IN_PROGRESS obsoleta riconciliata: catena %, id_log=%',
+            'Riga log RUNNING obsoleta riconciliata: catena %, id_log=%',
             p_id_chain,
             r_stale_log.id_log;
     END LOOP;
