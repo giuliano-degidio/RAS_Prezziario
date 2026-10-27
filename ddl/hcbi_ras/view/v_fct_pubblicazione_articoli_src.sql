@@ -124,7 +124,8 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_articoli_src" AS
             WHEN nr_macro_gruppo IS NULL THEN 0::bigint
             ELSE COALESCE(id_anag_macro_gruppo, - 1::bigint)
         END AS id_anag_macro_gruppo,
-    cd_codice_completo,
+    substr(btrim(cd_codice_completo::text), 7)::character varying(70)
+        AS cd_codice_completo,
     cd_categoria_articolo,
     cd_subarticolo,
     ds_unita_misura_de,

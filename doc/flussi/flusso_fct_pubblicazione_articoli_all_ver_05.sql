@@ -317,7 +317,8 @@ SELECT
       ELSE COALESCE(r.id_anag_macro_gruppo, -1::bigint)
     END AS id_anag_macro_gruppo,
 
-    r.cd_codice_completo,
+    substr(btrim(r.cd_codice_completo::text), 7)::varchar(70)
+        AS cd_codice_completo,
     r.cd_categoria_articolo,
     r.cd_subarticolo,
     r.ds_unita_misura_de,
