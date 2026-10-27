@@ -1,21 +1,24 @@
 CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_albero_src" AS
- WITH mappa_pubblicazione_articolo AS MATERIALIZED (
-         SELECT pa.id_pubblicazione_articoli,
-            aa.id_anag_articolo,
+ WITH mappa_pubblicazione_articolo AS (
+         SELECT aa.id_anag_articolo,
             pa.cd_codice_completo,
-            aa.cd_articolo AS cd_articolo_anagrafica,
-            aa.ds_nome,
             pa.ds_anno_pubblicazione,
             pa.id_sorgente_provincia,
             pa.cd_versione
            FROM hcbi_ras.dwh_pubblicazione_articoli pa
-             JOIN hcbi_ras.dwh_anag_articolo aa ON aa.ds_anno::numeric = pa.ds_anno_pubblicazione AND TRIM(TRAILING '.'::text FROM btrim(aa.cd_articolo::text)) = TRIM(TRAILING '.'::text FROM btrim(pa.cd_articolo::text)) AND btrim(aa.cd_versione::text) = btrim(pa.cd_versione::text)
-        ), nodi_padre AS MATERIALIZED (
-         SELECT DISTINCT src.id_pubblicazione_albero
-           FROM hcbi_ras.dwh_pubblicazione_albero src
-          WHERE (EXISTS ( SELECT 1
-                   FROM hcbi_ras.dwh_pubblicazione_articoli figlio
-                  WHERE figlio.ds_anno_pubblicazione::numeric = src.ds_anno_pubblicazione::numeric AND figlio.id_sorgente_provincia::numeric = src.id_sorgente_provincia::numeric AND btrim(figlio.cd_versione::text) = btrim(src.cd_versione::text) AND btrim(figlio.cd_codice_completo::text) ~~ (btrim(src.cd_articolo::text) || '.%'::text)))
+             JOIN hcbi_ras.dwh_anag_articolo aa ON aa.ds_anno = pa.ds_anno_pubblicazione::integer AND aa.cd_versione = pa.cd_versione AND aa.id_sorgente_provincia = pa.id_sorgente_provincia AND rtrim(aa.cd_articolo::text, '.'::text) = rtrim(pa.cd_articolo::text, '.'::text)
+        ), prefissi_pubblicazione_articolo AS (
+         SELECT DISTINCT figlio.ds_anno_pubblicazione,
+            figlio.id_sorgente_provincia,
+            figlio.cd_versione,
+            array_to_string(parti.codice[1:livello.n], '.'::text)::character varying(70) AS cd_articolo
+           FROM hcbi_ras.dwh_pubblicazione_articoli figlio
+             CROSS JOIN LATERAL ( SELECT string_to_array(figlio.cd_codice_completo::text, '.'::text) AS codice) parti
+             CROSS JOIN LATERAL generate_series(1, cardinality(parti.codice) - 1) livello(n)
+        ), nodi_padre AS (
+         SELECT padre.id_pubblicazione_albero
+           FROM prefissi_pubblicazione_articolo prefisso
+             JOIN hcbi_ras.dwh_pubblicazione_albero padre ON padre.ds_anno_pubblicazione = prefisso.ds_anno_pubblicazione AND padre.id_sorgente_provincia = prefisso.id_sorgente_provincia AND padre.cd_versione = prefisso.cd_versione AND padre.cd_articolo = prefisso.cd_articolo
         ), lookup_base AS (
          SELECT src.id_pubblicazione_albero,
             src.ds_anno_pubblicazione,
@@ -74,10 +77,10 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_albero_src" AS
             src.nr_macro_gruppo IS NOT NULL AND mg.id_anag_macro_gruppo IS NULL AS fl_macro_gruppo_ko
            FROM hcbi_ras.dwh_pubblicazione_albero src
              LEFT JOIN hcbi_ras.dim_periodo per ON per.ds_anno::numeric = src.ds_anno_pubblicazione
-             LEFT JOIN hcbi_ras.dwh_anag_provincia dwh_prv ON dwh_prv.id_sorgente_provincia::numeric = src.id_sorgente_provincia
-             LEFT JOIN hcbi_ras.dim_provincia prv ON prv.cd_provincia::text = dwh_prv.cd_provincia::text
+             LEFT JOIN hcbi_ras.dwh_anag_provincia dwh_prv ON dwh_prv.anno = src.ds_anno_pubblicazione::integer AND dwh_prv.cd_versione = src.cd_versione AND dwh_prv.id_sorgente_provincia = src.id_sorgente_provincia::bigint
+             LEFT JOIN hcbi_ras.dim_provincia prv ON prv.id_anag_provincia = dwh_prv.id_anag_provincia AND prv.anno = dwh_prv.anno AND prv.cd_versione = dwh_prv.cd_versione
              LEFT JOIN nodi_padre nodo ON nodo.id_pubblicazione_albero = src.id_pubblicazione_albero
-             LEFT JOIN mappa_pubblicazione_articolo map ON map.ds_anno_pubblicazione::numeric = src.ds_anno_pubblicazione::numeric AND map.id_sorgente_provincia::numeric = src.id_sorgente_provincia::numeric AND btrim(map.cd_codice_completo::text) = btrim(src.cd_articolo::text) AND btrim(map.cd_versione::text) = btrim(src.cd_versione::text)
+             LEFT JOIN mappa_pubblicazione_articolo map ON map.ds_anno_pubblicazione = src.ds_anno_pubblicazione AND map.id_sorgente_provincia = src.id_sorgente_provincia AND map.cd_codice_completo = src.cd_articolo AND map.cd_versione = src.cd_versione
              LEFT JOIN hcbi_ras.dim_articolo art ON art.id_anag_articolo = map.id_anag_articolo
              LEFT JOIN hcbi_ras.dwh_anag_macro_gruppo dwh_mg ON dwh_mg.id_sorgente_macro_gruppo = src.nr_macro_gruppo::bigint
              LEFT JOIN hcbi_ras.dim_macro_gruppo mg ON mg.id_anag_macro_gruppo = dwh_mg.id_anag_macro_gruppo

@@ -116,40 +116,42 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE hcbi_ras.fct_pubblicazione_albero 
    diagnosticabili dimensioni mancanti e cardinalita non univoche.
 */
 CREATE OR REPLACE VIEW hcbi_ras.v_fct_pubblicazione_albero_src AS
-WITH mappa_pubblicazione_articolo AS MATERIALIZED
+WITH mappa_pubblicazione_articolo AS
 (
     SELECT
-        pa.id_pubblicazione_articoli,
         aa.id_anag_articolo,
         pa.cd_codice_completo,
-        aa.cd_articolo AS cd_articolo_anagrafica,
-        aa.ds_nome,
         pa.ds_anno_pubblicazione,
         pa.id_sorgente_provincia,
         pa.cd_versione
     FROM hcbi_ras.dwh_pubblicazione_articoli AS pa
     JOIN hcbi_ras.dwh_anag_articolo AS aa
-      ON aa.ds_anno::numeric = pa.ds_anno_pubblicazione::numeric
-     AND aa.cd_versione::integer = pa.cd_versione::integer
-     AND aa.id_sorgente_provincia::bigint = pa.id_sorgente_provincia::bigint
-     AND trim(trailing '.' FROM btrim(aa.cd_articolo::text)) =
-         trim(trailing '.' FROM btrim(pa.cd_articolo::text))
-     AND btrim(aa.cd_versione::text) = btrim(pa.cd_versione::text)
+      ON aa.ds_anno = pa.ds_anno_pubblicazione::integer
+     AND aa.cd_versione = pa.cd_versione
+     AND aa.id_sorgente_provincia = pa.id_sorgente_provincia
+     AND rtrim(aa.cd_articolo::text, '.') = rtrim(pa.cd_articolo::text, '.')
 ),
-nodi_padre AS MATERIALIZED
+prefissi_pubblicazione_articolo AS
 (
-    SELECT DISTINCT src.id_pubblicazione_albero
-    FROM hcbi_ras.dwh_pubblicazione_albero AS src
-    WHERE EXISTS
-    (
-        SELECT 1
-        FROM hcbi_ras.dwh_pubblicazione_articoli AS figlio
-        WHERE figlio.ds_anno_pubblicazione::numeric = src.ds_anno_pubblicazione::numeric
-          AND figlio.id_sorgente_provincia::bigint = src.id_sorgente_provincia::bigint
-          AND btrim(figlio.cd_versione::text) = btrim(src.cd_versione::text)
-          AND btrim(figlio.cd_codice_completo::text)
-              LIKE btrim(src.cd_articolo::text) || '.%'
-    )
+    SELECT DISTINCT
+        figlio.ds_anno_pubblicazione,
+        figlio.id_sorgente_provincia,
+        figlio.cd_versione,
+        array_to_string(parti.codice[1:livello.n], '.')::varchar(70) AS cd_articolo
+    FROM hcbi_ras.dwh_pubblicazione_articoli AS figlio
+    CROSS JOIN LATERAL
+        (SELECT string_to_array(figlio.cd_codice_completo, '.') AS codice) AS parti
+    CROSS JOIN LATERAL generate_series(1, cardinality(parti.codice) - 1) AS livello(n)
+),
+nodi_padre AS
+(
+    SELECT padre.id_pubblicazione_albero
+    FROM prefissi_pubblicazione_articolo AS prefisso
+    JOIN hcbi_ras.dwh_pubblicazione_albero AS padre
+      ON padre.ds_anno_pubblicazione = prefisso.ds_anno_pubblicazione
+     AND padre.id_sorgente_provincia = prefisso.id_sorgente_provincia
+     AND padre.cd_versione = prefisso.cd_versione
+     AND padre.cd_articolo = prefisso.cd_articolo
 ),
 lookup_base AS
 (
@@ -175,7 +177,7 @@ lookup_base AS
       ON per.ds_anno::numeric = src.ds_anno_pubblicazione
     LEFT JOIN hcbi_ras.dwh_anag_provincia AS dwh_prv
       ON dwh_prv.anno = src.ds_anno_pubblicazione::integer
-     AND dwh_prv.cd_versione = src.cd_versione::smallint
+     AND dwh_prv.cd_versione = src.cd_versione
      AND dwh_prv.id_sorgente_provincia = src.id_sorgente_provincia::bigint
     LEFT JOIN hcbi_ras.dim_provincia AS prv
       ON prv.id_anag_provincia = dwh_prv.id_anag_provincia
@@ -189,10 +191,10 @@ lookup_base AS
        albero contiene il codice completo e viene quindi confrontato con
        DWH_PUBBLICAZIONE_ARTICOLI.CD_CODICE_COMPLETO. */
     LEFT JOIN mappa_pubblicazione_articolo AS map
-      ON map.ds_anno_pubblicazione::numeric = src.ds_anno_pubblicazione::numeric
-     AND map.id_sorgente_provincia::bigint = src.id_sorgente_provincia::bigint
-     AND btrim(map.cd_codice_completo::text) = btrim(src.cd_articolo::text)
-     AND btrim(map.cd_versione::text) = btrim(src.cd_versione::text)
+      ON map.ds_anno_pubblicazione = src.ds_anno_pubblicazione
+     AND map.id_sorgente_provincia = src.id_sorgente_provincia
+     AND map.cd_codice_completo = src.cd_articolo
+     AND map.cd_versione = src.cd_versione
     LEFT JOIN hcbi_ras.dim_articolo AS art
       ON art.id_anag_articolo = map.id_anag_articolo
     LEFT JOIN hcbi_ras.dwh_anag_macro_gruppo AS dwh_mg
