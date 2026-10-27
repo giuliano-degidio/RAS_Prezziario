@@ -1,5 +1,5 @@
 CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_articoli_src" AS
- WITH base AS MATERIALIZED (
+ WITH base AS (
          SELECT src.id_pubblicazione_articoli,
             src.id_sorgente_provincia,
             src.ds_anno_pubblicazione,
@@ -40,9 +40,9 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_articoli_src" AS
             prv.id_anag_provincia
            FROM hcbi_ras.dwh_pubblicazione_articoli src
              LEFT JOIN hcbi_ras.dim_periodo per ON per.ds_anno::numeric = src.ds_anno_pubblicazione::numeric
-             LEFT JOIN hcbi_ras.dwh_anag_provincia dwh_prv ON dwh_prv.id_sorgente_provincia::numeric = src.id_sorgente_provincia::numeric
-             LEFT JOIN hcbi_ras.dim_provincia prv ON prv.cd_provincia::text = dwh_prv.cd_provincia::text
-        ), resolved AS MATERIALIZED (
+             LEFT JOIN hcbi_ras.dwh_anag_provincia dwh_prv ON dwh_prv.anno = src.ds_anno_pubblicazione::integer AND dwh_prv.cd_versione = src.cd_versione::smallint AND dwh_prv.id_sorgente_provincia = src.id_sorgente_provincia::bigint
+             LEFT JOIN hcbi_ras.dim_provincia prv ON prv.id_anag_provincia = dwh_prv.id_anag_provincia AND prv.anno = dwh_prv.anno AND prv.cd_versione = dwh_prv.cd_versione
+        ), resolved AS (
          SELECT b.id_pubblicazione_articoli,
             b.id_sorgente_provincia,
             b.ds_anno_pubblicazione,
@@ -90,12 +90,12 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_articoli_src" AS
             dwh_mg.id_anag_macro_gruppo AS dwh_id_anag_macro_gruppo,
             mg.id_anag_macro_gruppo
            FROM base b
-             LEFT JOIN hcbi_ras.dim_versione ver ON ver.id_periodo_pubblicazione = b.id_periodo AND ver.id_anag_provincia = b.id_anag_provincia AND btrim(ver.cd_versione::text) = btrim(b.cd_versione::text)
-             LEFT JOIN hcbi_ras.dim_articolo art ON art.id_periodo_pubblicazione = b.id_periodo AND art.id_anag_provincia = b.id_anag_provincia AND art.id_anag_versione = ver.id_anag_versione AND TRIM(TRAILING '.'::text FROM btrim(art.cd_articolo::text)) = b.cd_articolo_normalizzato::text
-             LEFT JOIN hcbi_ras.dim_tipologia tip ON btrim(tip.cd_tipologia::text) = btrim(b.cd_tipologia_lookup::text) AND tip.id_periodo_pubblicazione = b.id_periodo AND tip.id_anag_versione = ver.id_anag_versione AND tip.id_anag_provincia = b.id_anag_provincia
-             LEFT JOIN hcbi_ras.dim_capitolo cap ON btrim(cap.cd_capitolo::text) = btrim(b.cd_capitolo_lookup::text) AND cap.id_periodo_pubblicazione = b.id_periodo AND cap.id_anag_versione = ver.id_anag_versione AND cap.id_anag_provincia = b.id_anag_provincia
-             LEFT JOIN hcbi_ras.dim_sottocapitolo sot ON btrim(sot.cd_sottocapitolo::text) = btrim(b.cd_sottocapitolo_lookup::text) AND sot.id_periodo_pubblicazione = b.id_periodo AND sot.id_anag_versione = ver.id_anag_versione AND sot.id_anag_provincia = b.id_anag_provincia
-             LEFT JOIN hcbi_ras.dim_unita_misura um ON btrim(um.cd_unita_misura::text) = btrim(b.cd_unita_misura::text)
+             LEFT JOIN hcbi_ras.dim_versione ver ON ver.id_periodo_pubblicazione = b.id_periodo AND ver.id_anag_provincia = b.id_anag_provincia AND ver.cd_versione = b.cd_versione
+             LEFT JOIN hcbi_ras.dim_articolo art ON art.id_periodo_pubblicazione = b.id_periodo AND art.id_anag_provincia = b.id_anag_provincia AND art.id_anag_versione = ver.id_anag_versione AND art.cd_articolo::text = b.cd_articolo_normalizzato::text
+             LEFT JOIN hcbi_ras.dim_tipologia tip ON tip.cd_tipologia = b.cd_tipologia_lookup AND tip.id_periodo_pubblicazione = b.id_periodo AND tip.id_anag_versione = ver.id_anag_versione AND tip.id_anag_provincia = b.id_anag_provincia
+             LEFT JOIN hcbi_ras.dim_capitolo cap ON cap.cd_capitolo = b.cd_capitolo_lookup AND cap.id_periodo_pubblicazione = b.id_periodo AND cap.id_anag_versione = ver.id_anag_versione AND cap.id_anag_provincia = b.id_anag_provincia
+             LEFT JOIN hcbi_ras.dim_sottocapitolo sot ON sot.cd_sottocapitolo = b.cd_sottocapitolo_lookup AND sot.id_periodo_pubblicazione = b.id_periodo AND sot.id_anag_versione = ver.id_anag_versione AND sot.id_anag_provincia = b.id_anag_provincia
+             LEFT JOIN hcbi_ras.dim_unita_misura um ON um.cd_unita_misura = btrim(b.cd_unita_misura::text)
              LEFT JOIN hcbi_ras.dwh_anag_macro_gruppo dwh_mg ON dwh_mg.id_sorgente_macro_gruppo = b.nr_macro_gruppo::bigint
              LEFT JOIN hcbi_ras.dim_macro_gruppo mg ON mg.id_anag_macro_gruppo = dwh_mg.id_anag_macro_gruppo
         )

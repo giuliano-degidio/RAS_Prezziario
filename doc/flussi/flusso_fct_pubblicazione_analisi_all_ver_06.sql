@@ -107,17 +107,17 @@ COMMENT ON COLUMN hcbi_ras.fct_pubblicazione_analisi.cd_codice_analisi IS
 
 /* La vista conserva il grain DWH e risolve le FK in modalita set-based. */
 CREATE OR REPLACE VIEW hcbi_ras.v_fct_pubblicazione_analisi_src AS
-WITH mappa_analisi_provincia AS MATERIALIZED
+WITH mappa_analisi_provincia AS
 (
     SELECT DISTINCT
         pa.ds_anno_pubblicazione,
-        btrim(pa.cd_codice_completo::TEXT)::VARCHAR(70)
+        pa.cd_codice_completo::VARCHAR(70)
             AS cd_codice_analisi_completo,
         pa.cd_versione,
         pa.id_sorgente_provincia
     FROM hcbi_ras.dwh_pubblicazione_articoli AS pa
 ),
-base AS MATERIALIZED
+base AS
 (
     SELECT
         src.*,
@@ -129,15 +129,15 @@ base AS MATERIALIZED
             '\.$',
             ''
         )::VARCHAR(70) AS cd_articolo_normalizzato,
-        btrim(src.cd_codice_analisi::TEXT)::VARCHAR(70)
+        src.cd_codice_analisi::VARCHAR(70)
             AS cd_codice_analisi_completo
     FROM hcbi_ras.dwh_pubblicazione_analisi AS src
     LEFT JOIN hcbi_ras.dim_periodo AS per
       ON per.ds_anno::NUMERIC = src.ds_anno_pubblicazione
     LEFT JOIN mappa_analisi_provincia AS map
-      ON map.ds_anno_pubblicazione::NUMERIC = src.ds_anno_pubblicazione::NUMERIC
-     AND map.cd_codice_analisi_completo = btrim(src.cd_codice_analisi::TEXT)
-     AND btrim(map.cd_versione::TEXT) = btrim(src.cd_versione::TEXT)
+      ON map.ds_anno_pubblicazione = src.ds_anno_pubblicazione
+     AND map.cd_codice_analisi_completo = src.cd_codice_analisi
+     AND map.cd_versione = src.cd_versione
     LEFT JOIN hcbi_ras.dwh_anag_provincia AS dwh_prv
       ON dwh_prv.anno = src.ds_anno_pubblicazione::INTEGER
      AND dwh_prv.cd_versione = src.cd_versione::SMALLINT
@@ -147,7 +147,7 @@ base AS MATERIALIZED
      AND prv.anno = dwh_prv.anno
      AND prv.cd_versione = dwh_prv.cd_versione
 ),
-resolved AS MATERIALIZED
+resolved AS
 (
     SELECT
         b.*,
@@ -156,12 +156,11 @@ resolved AS MATERIALIZED
     FROM base AS b
     LEFT JOIN hcbi_ras.dim_versione AS ver
       ON ver.id_periodo_pubblicazione = COALESCE(b.id_periodo,-1::INTEGER)
-     AND btrim(ver.cd_versione::TEXT) = btrim(b.cd_versione::TEXT)
+     AND ver.cd_versione = b.cd_versione
      AND ver.id_anag_provincia = COALESCE(b.id_anag_provincia,-1::BIGINT)
     LEFT JOIN hcbi_ras.dim_articolo AS art
       ON art.id_periodo_pubblicazione = COALESCE(b.id_periodo,-1::INTEGER)
-     AND trim(trailing '.' FROM btrim(art.cd_articolo::TEXT)) =
-         trim(trailing '.' FROM btrim(b.cd_articolo_normalizzato::TEXT))
+     AND art.cd_articolo = b.cd_articolo_normalizzato
      AND art.id_anag_versione = COALESCE(ver.id_anag_versione,-1::BIGINT)
      AND art.id_anag_provincia = COALESCE(b.id_anag_provincia,-1::BIGINT)
 )

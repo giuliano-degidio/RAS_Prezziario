@@ -1,11 +1,11 @@
 CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_analisi_src" AS
- WITH mappa_analisi_provincia AS MATERIALIZED (
+ WITH mappa_analisi_provincia AS (
          SELECT DISTINCT pa.ds_anno_pubblicazione,
-            btrim(pa.cd_codice_completo::text)::character varying(70) AS cd_codice_analisi_completo,
+            pa.cd_codice_completo::character varying(70) AS cd_codice_analisi_completo,
             pa.cd_versione,
             pa.id_sorgente_provincia
            FROM hcbi_ras.dwh_pubblicazione_articoli pa
-        ), base AS MATERIALIZED (
+        ), base AS (
          SELECT src.id_pubblicazione_analisi,
             src.ds_anno_pubblicazione,
             src.cd_codice_analisi,
@@ -24,13 +24,13 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_analisi_src" AS
             map.id_sorgente_provincia,
             prv.id_anag_provincia,
             regexp_replace(substr(btrim(src.cd_articolo::text), 7), '\.$'::text, ''::text)::character varying(70) AS cd_articolo_normalizzato,
-            btrim(src.cd_codice_analisi::text)::character varying(70) AS cd_codice_analisi_completo
+            src.cd_codice_analisi::character varying(70) AS cd_codice_analisi_completo
            FROM hcbi_ras.dwh_pubblicazione_analisi src
              LEFT JOIN hcbi_ras.dim_periodo per ON per.ds_anno::numeric = src.ds_anno_pubblicazione
-             LEFT JOIN mappa_analisi_provincia map ON map.ds_anno_pubblicazione::numeric = src.ds_anno_pubblicazione::numeric AND map.cd_codice_analisi_completo::text = btrim(src.cd_codice_analisi::text) AND btrim(map.cd_versione::text) = btrim(src.cd_versione::text)
-             LEFT JOIN hcbi_ras.dwh_anag_provincia dwh_prv ON dwh_prv.id_sorgente_provincia::numeric = map.id_sorgente_provincia
-             LEFT JOIN hcbi_ras.dim_provincia prv ON prv.cd_provincia::text = dwh_prv.cd_provincia::text
-        ), resolved AS MATERIALIZED (
+             LEFT JOIN mappa_analisi_provincia map ON map.ds_anno_pubblicazione = src.ds_anno_pubblicazione AND map.cd_codice_analisi_completo::text = src.cd_codice_analisi::text AND map.cd_versione = src.cd_versione
+             LEFT JOIN hcbi_ras.dwh_anag_provincia dwh_prv ON dwh_prv.anno = src.ds_anno_pubblicazione::integer AND dwh_prv.cd_versione = src.cd_versione::smallint AND dwh_prv.id_sorgente_provincia = map.id_sorgente_provincia::bigint
+             LEFT JOIN hcbi_ras.dim_provincia prv ON prv.id_anag_provincia = dwh_prv.id_anag_provincia AND prv.anno = dwh_prv.anno AND prv.cd_versione = dwh_prv.cd_versione
+        ), resolved AS (
          SELECT b.id_pubblicazione_analisi,
             b.ds_anno_pubblicazione,
             b.cd_codice_analisi,
@@ -53,8 +53,8 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_analisi_src" AS
             ver.id_anag_versione,
             art.id_anag_articolo
            FROM base b
-             LEFT JOIN hcbi_ras.dim_versione ver ON ver.id_periodo_pubblicazione = COALESCE(b.id_periodo, '-1'::integer) AND btrim(ver.cd_versione::text) = btrim(b.cd_versione::text) AND ver.id_anag_provincia = COALESCE(b.id_anag_provincia, - 1::bigint)
-             LEFT JOIN hcbi_ras.dim_articolo art ON art.id_periodo_pubblicazione = COALESCE(b.id_periodo, '-1'::integer) AND TRIM(TRAILING '.'::text FROM btrim(art.cd_articolo::text)) = TRIM(TRAILING '.'::text FROM btrim(b.cd_articolo_normalizzato::text)) AND art.id_anag_versione = COALESCE(ver.id_anag_versione, - 1::bigint) AND art.id_anag_provincia = COALESCE(b.id_anag_provincia, - 1::bigint)
+             LEFT JOIN hcbi_ras.dim_versione ver ON ver.id_periodo_pubblicazione = COALESCE(b.id_periodo, '-1'::integer) AND ver.cd_versione = b.cd_versione AND ver.id_anag_provincia = COALESCE(b.id_anag_provincia, - 1::bigint)
+             LEFT JOIN hcbi_ras.dim_articolo art ON art.id_periodo_pubblicazione = COALESCE(b.id_periodo, '-1'::integer) AND art.cd_articolo::text = b.cd_articolo_normalizzato::text AND art.id_anag_versione = COALESCE(ver.id_anag_versione, - 1::bigint) AND art.id_anag_provincia = COALESCE(b.id_anag_provincia, - 1::bigint)
         )
  SELECT id_pubblicazione_analisi,
     COALESCE(id_periodo, '-1'::integer) AS id_periodo_pubblicazione,
