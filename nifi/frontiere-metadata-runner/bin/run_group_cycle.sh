@@ -4,7 +4,7 @@
 # DWH chain 1 -> stop del process group. Vedi scripts/run_group_cycle.py.
 # comando avvio da terminale: 
 # cd /opt/etl/frontiere-metadata-runner/
-# ./bin/run_group_cycle.sh --frontiere-timeout 3600 --dwh-timeout 1800
+# ./bin/run_group_cycle.sh --frontiere-timeout 7200 --dwh-timeout 7200
 set -euo pipefail
 PROJECT_DIR=${FMR_PROJECT_DIR:-/opt/etl/frontiere-metadata-runner}
 PYTHON=${FMR_PYTHON:-"$PROJECT_DIR/.venv/bin/python"}

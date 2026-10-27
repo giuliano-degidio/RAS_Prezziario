@@ -103,7 +103,7 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE hcbi_ras.fct_pubblicazione_analisi TO
 COMMENT ON TABLE hcbi_ras.fct_pubblicazione_analisi IS
 'Fact alimentata direttamente da DWH_PUBBLICAZIONE_ANALISI; PK mantenuta dalla DWH e FK verso periodo, articolo e versione.';
 COMMENT ON COLUMN hcbi_ras.fct_pubblicazione_analisi.cd_codice_analisi IS
-'Codice analisi riportato direttamente dalla DWH come attributo degenerato.';
+'Codice analisi riportato dalla DWH come attributo degenerato, privato dei primi 6 caratteri del prefisso (es. SAR26_).';
 
 /* La vista conserva il grain DWH e risolve le FK in modalita set-based. */
 CREATE OR REPLACE VIEW hcbi_ras.v_fct_pubblicazione_analisi_src AS
@@ -170,7 +170,7 @@ SELECT
     COALESCE(id_periodo,-1::INTEGER) AS id_periodo_pubblicazione,
     COALESCE(id_anag_articolo,-1::BIGINT) AS id_anag_articolo,
     COALESCE(id_anag_versione,-1::BIGINT) AS id_anag_versione,
-    cd_codice_analisi,
+    substr(btrim(cd_codice_analisi::TEXT), 7)::VARCHAR(70) AS cd_codice_analisi,
     nr_quantita,
     id_sorgente_pubblicazione_analisi,
     id_sorgente_categoria,

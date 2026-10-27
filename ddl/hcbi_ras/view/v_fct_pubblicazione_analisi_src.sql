@@ -60,7 +60,7 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_pubblicazione_analisi_src" AS
     COALESCE(id_periodo, '-1'::integer) AS id_periodo_pubblicazione,
     COALESCE(id_anag_articolo, - 1::bigint) AS id_anag_articolo,
     COALESCE(id_anag_versione, - 1::bigint) AS id_anag_versione,
-    cd_codice_analisi,
+    substr(btrim(cd_codice_analisi::text), 7)::character varying(70) AS cd_codice_analisi,
     nr_quantita,
     id_sorgente_pubblicazione_analisi,
     id_sorgente_categoria,
