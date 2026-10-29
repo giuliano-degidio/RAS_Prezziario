@@ -9,7 +9,12 @@ fi
 SERVICE_USER=nifi
 PROJECT_DIR=/opt/etl/frontiere-metadata-runner
 SOURCE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+NIFI_DEPLOY_HELPER="$SOURCE_DIR/../nifi/deploy_manual_launcher.py"
 
+if [[ ! -f "$NIFI_DEPLOY_HELPER" ]]; then
+    printf 'Helper di deploy NiFi non trovato: %s\n' "$NIFI_DEPLOY_HELPER" >&2
+    exit 1
+fi
 if ! getent passwd "$SERVICE_USER" >/dev/null; then
     printf 'Utente di servizio non trovato: %s\n' "$SERVICE_USER" >&2
     exit 1
@@ -39,7 +44,7 @@ install -m 0750 -o "$SERVICE_USER" -g "$SERVICE_GROUP" \
     "$SOURCE_DIR/launch_manual_dwh_run.sh" \
     "$PROJECT_DIR/bin/launch_manual_dwh_run.sh"
 install -m 0750 -o "$SERVICE_USER" -g "$SERVICE_GROUP" \
-    "$SOURCE_DIR/nifi/deploy_manual_launcher.py" \
+    "$NIFI_DEPLOY_HELPER" \
     "$PROJECT_DIR/scripts/deploy_manual_launcher.py"
 install -m 0644 "$SOURCE_DIR/dwh-scheduler.timer" \
     /etc/systemd/system/dwh-scheduler.timer
