@@ -1,0 +1,25 @@
+[Unit]
+Description=Evaluate DWH schedule and run NiFi refresh when due
+Wants=network-online.target
+Requires=nifi.service
+After=network-online.target nifi.service
+
+[Service]
+Type=oneshot
+User=nifi
+Group=nifi
+EnvironmentFile=-/etc/sysconfig/dwh-scheduler
+Environment=TZ=Europe/Rome
+WorkingDirectory=/opt/etl/frontiere-metadata-runner
+ExecStart=/opt/etl/frontiere-metadata-runner/.venv/bin/python /opt/etl/frontiere-metadata-runner/scripts/dwh_schedule_runner.py
+TimeoutStartSec=0
+TimeoutStopSec=60
+KillMode=control-group
+UMask=0027
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

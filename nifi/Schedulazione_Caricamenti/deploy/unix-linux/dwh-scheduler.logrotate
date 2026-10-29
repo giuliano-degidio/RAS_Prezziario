@@ -1,0 +1,13 @@
+/opt/etl/log/dwh-scheduler/dwh-scheduler.log {
+    monthly
+    rotate 12
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    dateext
+    dateformat -%Y-%m
+    su nifi nifi
+    create 0640 nifi nifi
+}

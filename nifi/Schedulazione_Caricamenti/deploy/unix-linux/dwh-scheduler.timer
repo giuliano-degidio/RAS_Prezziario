@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily DWH schedule evaluation (Europe/Rome)
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 Europe/Rome
+Persistent=true
+AccuracySec=1min
+Unit=dwh-scheduler.service
+
+[Install]
+WantedBy=timers.target
