@@ -21,7 +21,8 @@ Componente di Data Management
    - 5.1 [Tabelle di configurazione](#51-tabelle-di-configurazione)
    - 5.2 [Tabelle di log](#52-tabelle-di-log)
    - 5.3 [Procedure di orchestrazione](#53-procedure-di-orchestrazione)
-6. [Orchestrazione NiFi: FRONTIERE_METADATA_RUNNER](#6-orchestrazione-nifi-frontiere_metadata_runner)
+   - 5.4 [Schedulazione DWH con systemd](#54-schedulazione-dwh-con-systemd)
+6. [Orchestrazione NiFi e scheduler DWH](#6-orchestrazione-nifi-e-scheduler-dwh)
 7. [Notifiche](#7-notifiche)
 8. [Git: versioning del software](#8-git-versioning-del-software)
 9. [Riferimenti](#9-riferimenti)
@@ -53,7 +54,7 @@ esistenti.
 | Database applicativo | `hcbi` |
 | Database sorgente | `RAS_Operazionales` (stesso host) |
 | Linguaggio procedurale | PL/pgSQL |
-| Orchestrazione/scheduling | Apache NiFi 2.11 |
+| Orchestrazione ETL | Apache NiFi 2.11; timer systemd giornaliero e calendario DWH in PostgreSQL |
 | Reportistica | Pentaho, Power BI |
 
 A differenza di architetture a "uno schema per modulo" (es. Oracle
@@ -101,7 +102,8 @@ Esempio reale completo (famiglia `anag_utenti`): `frontiera_anag_utenti` →
    versioning/audit se richiesto, es. `cd_versione SMALLINT`).
 5. Creare `hcbi_ras.dim_<entità>` (o `fct_`) per il modello dimensionale.
 6. Salvare ogni DDL in `ddl/hcbi_ras/table/<nome_tabella>.sql`, un file per
-   oggetto, allineato all'oggetto reale sul DB (vedi §9 per come estrarlo).
+   oggetto, e mantenerlo allineato alla definizione effettiva sul DB. Non inserire
+   credenziali o altri segreti nelle DDL versionate.
 
 ### 3.2 Step sulle procedure (STG / DWH / DIM)
 
@@ -183,6 +185,12 @@ all'orchestratore `hcbi_utility` (vedi §5 per i dettagli):
    `hcbi_utility.etl_frontiere_config` (vedi §4): nessuna modifica al codice
    Python è necessaria, il loop legge la configurazione a runtime.
 
+La configurazione della chain (`srv_config_chain`/`srv_config_step`), quella delle
+frontiere (`etl_frontiere_config`) e il calendario del ciclo completo
+(`dwh_schedule`, §5.4) sono livelli distinti. La schedulazione DWH riguarda il
+ciclo frontiere + chain 1 nel suo complesso: non si crea una riga di calendario
+per ogni tabella o frontiera.
+
 ---
 
 ## 4. Caricamento dinamico frontiera: `run_frontiere.py`
@@ -210,6 +218,12 @@ target (già esistente, creata come da §3.1). Lo script gestisce da solo lock
 per-frontiera, log in `hcbi_utility.etl_frontiere_run`, riconciliazione righe
 lette/scritte e gestione zero-righe (warning, non errore).
 
+Il runner esegue le frontiere attive in sequenza. Se una frontiera termina con
+`FAILED` o `SKIPPED`, `run_frontiere.py` non emette il marker di successo e
+restituisce un codice non-zero; in questo caso il gate NiFi non inoltra il
+FlowFile al refresh DWH (§6). A ciclo riuscito, stdout è riservato al marker
+`FMR_EXECUTION_UUID=<uuid>`; i log applicativi vanno su stderr e nel file.
+
 ---
 
 ## 5. HCBI_UTILITY: motore di schedulazione e orchestrazione
@@ -222,6 +236,7 @@ lette/scritte e gestione zero-righe (warning, non errore).
 | `srv_config_step` | step di ogni chain, in ordine (`nr_step_order`), con dipendenze (`id_dependency_step`), flag bloccante/non bloccante, retry |
 | `srv_metadata_copy_src` | metadati di copia legati a una chain (sorgente → tabella temp target) |
 | `etl_frontiere_config` | configurazione del caricamento frontiere (§4) |
+| `dwh_schedule` | frequenza, calendario, retry e ultimo periodo riuscito del ciclo DWH; al massimo una riga abilitata |
 | `cfg_connections` | connessioni esterne configurate (es. dblink) |
 
 ### 5.2 Tabelle di log
@@ -232,7 +247,8 @@ lette/scritte e gestione zero-righe (warning, non errore).
 | `log_step` | una riga per step eseguito all'interno di una chain (conteggi `nr_rec_selected/inserted/updated/deleted/errors`, stato, errore) |
 | `etl_frontiere_run` | log per singola frontiera caricata (righe lette/scritte, stato, `nifi_flowfile_uuid`) |
 | `etl_frontiere_execution_lock` | lock applicativo per frontiera, a riposo deve essere sempre vuota |
-| `etl_dwh_refresh_run` | log per esecuzione della chain DWH lanciata da NiFi (`execution_uuid`, `chain_id`, stato) |
+| `etl_dwh_refresh_run` | log per esecuzione della chain DWH lanciata da NiFi (`execution_uuid`, `chain_id`, stato `RUNNING`/`SUCCEEDED`/`FAILED`/`SKIPPED`) |
+| `dwh_schedule_run` | audit del runner scheduler: un tentativo per avvio, con `trigger_source` (`SCHEDULED`/`MANUAL_UI`), periodo, stato (`RUNNING`/`SUCCESS`/`FAILED`/`SKIPPED`) ed errore |
 
 ### 5.3 Procedure di orchestrazione
 
@@ -267,36 +283,141 @@ lette/scritte e gestione zero-righe (warning, non errore).
 > Dettaglio completo (786 righe) in
 > `ddl/hcbi_utility/procedure/prc_execute_chain__bigint.sql`.
 
+La schedulazione non sostituisce queste procedure e non modifica il modello delle
+chain: decide quando avviare il ciclo NiFi. Quando il ciclo è dovuto, il runner
+utilizza il wrapper FMR, che invoca il Process Group; il processor DWH continua a
+chiamare `hcbi_utility.prc_execute_chain(1)`.
+
+### 5.4 Schedulazione DWH con systemd
+
+Il calendario del refresh completo è conservato in
+`hcbi_utility.dwh_schedule`; i tentativi e i relativi esiti sono registrati in
+`hcbi_utility.dwh_schedule_run`. Il DDL crea vincoli per le frequenze supportate
+(`DAILY`, `WEEKLY`, `MONTHLY`, `BIMONTHLY`, `QUARTERLY`, `FOUR_MONTHLY`,
+`SEMIANNUAL`, `ANNUAL`) e ammette al massimo una configurazione abilitata. Il DDL
+non inserisce righe: frequenza, giorno, settimana del mese, mese di ancoraggio e
+finestra di retry vanno concordati e configurati esplicitamente. Senza una riga
+abilitata il runner segnala un errore nei log e non può creare un tentativo con
+`dwh_schedule_run`, perché manca lo `schedule_id` da associare all'audit.
+
+Il timer `dwh-scheduler.timer` si attiva ogni giorno alle 03:00
+(`Europe/Rome`, `Persistent=true`). L'orario del timer è solo il momento in cui
+il runner valuta il calendario: è `dwh_schedule` a stabilire se il ciclo è dovuto.
+La modalità automatica `scheduled` registra `SKIPPED` senza avviare NiFi quando
+la data non è dovuta, il retry è scaduto o il periodo logico è già stato
+completato con successo.
+
+Il runner Python usa il virtualenv FMR, carica i segreti cifrati, acquisisce un
+advisory lock globale e, quando previsto, invoca `bin/run_group_cycle.sh`. Il
+runner schedulato attende il lock fino al timeout configurato (due ore di
+default); dopo il ciclo registra `SUCCESS` o `FAILED` in `dwh_schedule_run`.
+Un'interruzione può lasciare un tentativo `RUNNING`, riconciliato a `FAILED` al
+successivo avvio.
+
+L'avvio manuale operativo passa invece dal Process Group `DWH_MANUAL_LAUNCH`,
+che lancia lo stesso runner in modalità `manual-ui`. Questa modalità richiede una
+configurazione abilitata ma ignora la data pianificata: ogni richiesta può
+rieseguire frontiere e DWH anche dopo un successo dello stesso periodo. Se non
+c'è un periodo dovuto, i campi del periodo restano nulli e
+`last_success_period_start` non avanza. Se il lock è occupato, la richiesta
+manuale termina come `SKIPPED` senza attendere. `trigger_source` distingue
+`SCHEDULED` da `MANUAL_UI`; `requested_by='NiFi-UI'` identifica il canale, non la
+persona.
+
+Non avviare direttamente `FRONTIERE_METADATA_RUNNER` per un'esecuzione operativa: è
+riservato ai test tecnici e non crea l'audit `dwh_schedule_run`. L'entry point UI
+manuale è `DWH_MANUAL_LAUNCH`; il gruppo business viene avviato e fermato dal
+runner.
+
+Il DDL e la verifica PostgreSQL sono in
+`nifi/Schedulazione_Caricamenti/deploy/postgresql/`; runner, timer, service e
+installer sono in `nifi/Schedulazione_Caricamenti/deploy/unix-linux/`, mentre
+l'helper di deploy del launcher UI è in `nifi/Schedulazione_Caricamenti/deploy/nifi/`.
+La procedura dettagliata di DDL, deploy, permessi, attivazione, monitoraggio e
+rollback è in
+`nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md`; le regole
+di calendario e i casi d'esempio sono in
+`nifi/Schedulazione_Caricamenti/doc/01_progettazione_scheduler_dwh.md` e
+`nifi/Schedulazione_Caricamenti/doc/03_esempi_schedulazioni_dwh.md`.
+
 ---
 
-## 6. Orchestrazione NiFi: FRONTIERE_METADATA_RUNNER
+## 6. Orchestrazione NiFi e scheduler DWH
 
-Il progetto `nifi/frontiere-metadata-runner/` orchestra, a monte delle chain
-PL/pgSQL, la sequenza completa: caricamento full-refresh di tutte le frontiere
-attive (`run_frontiere.py`, §4) seguito, solo in caso di successo completo,
-dalla chiamata a `CALL hcbi_utility.prc_execute_chain(1)`
-(`run_dwh_refresh.py`). Per la messa in esercizio, gestione, monitoraggio e
-troubleshooting di questa parte vedere i due documenti dedicati, già
-disponibili in repository e qui solo richiamati:
+L'orchestrazione end-to-end usa tre livelli separati:
 
-- `nifi/frontiere-metadata-runner/README.md` — architettura, semantica
-  transazionale, logging, lock, test di accettazione
-- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di deploy per il sistemista
-  (installazione NiFi, setup, esecuzione da UI/CLI, monitoraggio, rollback)
+```text
+systemd timer (ogni giorno alle 03:00 Europe/Rome)
+  -> dwh-scheduler.service / dwh_schedule_runner.py (mode scheduled)
+       -> se il periodo è dovuto: run_group_cycle.sh
+            -> NiFi Process Group FRONTIERE_METADATA_RUNNER
+                 -> run_frontiere.py
+                 -> marker FMR_EXECUTION_UUID -> gate ExtractText (matched)
+                 -> run_dwh_refresh.py -> CALL hcbi_utility.prc_execute_chain(1)
+
+UI: DWH_MANUAL_LAUNCH -> runner dwh_schedule_runner.py (mode manual-ui)
+                          -> stesso wrapper e stesso Process Group business
+```
+
+Il timer si attiva ogni giorno, ma non equivale a un refresh giornaliero: il
+runner valuta la riga abilitata in `dwh_schedule` e il periodo/retry. Se una
+frontiera fallisce o viene saltata, `run_frontiere.py` non emette
+`FMR_EXECUTION_UUID=<uuid>`; la relationship `nonzero status` raggiunge il
+processor `Log frontiere failed`. Un FlowFile privo del marker valido viene
+terminato da `unmatched` del gate (anche `failure` è auto-terminate). Il refresh
+DWH riceve un FlowFile solo da `matched`, quindi la chain 1 non parte. Se le
+frontiere terminano con successo, il marker canonico collega i log di
+`etl_frontiere_run`, `etl_dwh_refresh_run` e `log_chain` tramite lo stesso UUID.
+
+Per l'esercizio normale, l'avvio automatico è `systemd` (non `cron`), mentre
+`DWH_MANUAL_LAUNCH` è il punto di accesso per una richiesta manuale. L'avvio
+diretto del gruppo business o l'uso diretto di `run_group_cycle.sh` è utile per
+test tecnici, ma non valuta il calendario né produce l'audit
+`dwh_schedule_run`. Non lasciare `Manual trigger` attivo nella UI: è un trigger
+tecnico a intervallo di un giorno, non l'interfaccia operativa.
+
+`DWH_MANUAL_LAUNCH` torna rapidamente `STOPPED`: il runner continua in
+background, quindi l'esito va verificato nell'audit e nei log, non dallo stato
+del launcher. `dwh_schedule_run` registra `SCHEDULED` o `MANUAL_UI` e stati
+`RUNNING`/`SUCCESS`/`FAILED`/`SKIPPED`; per il singolo DWH refresh,
+`etl_dwh_refresh_run` usa `RUNNING`/`SUCCEEDED`/`FAILED`/`SKIPPED`. `requested_by` riporta
+il canale `NiFi-UI`, non l'utente autenticato. I log FMR sono in
+`/opt/etl/log/frontiere-metadata-runner/`; il log scheduler è
+`/opt/etl/log/dwh-scheduler/dwh-scheduler.log`, con output disponibile anche nel
+journal systemd. Per controllare gli ultimi tentativi:
+
+```sql
+SELECT run_id, process_code, trigger_source, planned_date, period_start,
+       status, started_at, finished_at, return_code, error_message
+FROM hcbi_utility.dwh_schedule_run
+ORDER BY started_at DESC
+LIMIT 20;
+```
+
+NiFi esegue i processor con l'identità OS del servizio (in esercizio `nifi`):
+verificare che possa eseguire il virtualenv e gli script `.sh`, leggere gli
+script Python e scrivere nelle directory di log. Non è necessario concedere
+l'esecuzione a tutti gli utenti.
+
+Per installazione, gate, launcher, permessi, monitoraggio e rollback consultare:
+
+- `nifi/frontiere-metadata-runner/README.md` — architettura, gate UUID, logging,
+  lock, concorrenza e test di accettazione
+- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di deploy NiFi e scheduler DWH
+- `nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md` —
+  procedura operativa completa dello scheduler
 
 ---
 
 ## 7. Notifiche
 
-**Non è presente, ad oggi, alcun meccanismo di notifica** (email o
-altro) in caso di successo/fallimento dei flussi o delle chain. Il
-monitoraggio degli esiti avviene esclusivamente per via applicativa (tabelle
-`log_chain`, `log_step`, `etl_frontiere_run`, `etl_dwh_refresh_run`) e
-filesystem (log in `/opt/etl/log/frontiere-metadata-runner/`). Se serve
-introdurre notifiche, valutare un processor NiFi aggiuntivo (es. `PutEmail`)
-agganciato alle relationship `nonzero status`/`failed` già presenti nel
-template `FRONTIERE_METADATA_RUNNER.json`, oppure un controllo schedulato
-esterno che interroga le tabelle di log sopra elencate.
+**Non è configurato un invio automatico di notifiche** (email o altro) per il
+successo/fallimento dei flussi o delle chain. Il monitoraggio usa le tabelle
+`log_chain`, `log_step`, `etl_frontiere_run`, `etl_dwh_refresh_run` e
+`dwh_schedule_run`, i log filesystem FMR/scheduler, il journal systemd e i
+bulletin NiFi. Un eventuale alert va progettato sui segnali corretti del flow o
+sull'audit DB; non deve aggirare il gate che impedisce l'avvio del DWH dopo un
+errore delle frontiere.
 
 ---
 
@@ -339,8 +460,9 @@ Convenzioni repository:
 - `doc/flussi_appo/` — copie di lavoro/correzione in attesa di merge nello
   script ufficiale
 - `doc/deploy/` — manuali operativi per i sistemisti
-- `nifi/frontiere-metadata-runner/` — progetto di orchestrazione NiFi
-  (script, SQL di deploy, README)
+- `nifi/frontiere-metadata-runner/` — progetto FMR e flow NiFi
+- `nifi/Schedulazione_Caricamenti/` — runner, DDL, unità systemd, launcher UI e
+  documentazione della schedulazione DWH
 - `summaries/chat_summary.md` — riepilogo cronologico delle attività svolte
   sul progetto
 
@@ -351,7 +473,13 @@ Convenzioni repository:
 - `README.md` (root repository) — architettura sintetica e layer
 - `nifi/frontiere-metadata-runner/README.md` — dettaglio completo
   dell'orchestrazione NiFi
-- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di deploy NiFi
+- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di deploy NiFi e scheduler
+- `nifi/Schedulazione_Caricamenti/doc/01_progettazione_scheduler_dwh.md` —
+  modello dati, calendario e semantica dei run automatici/manuali
+- `nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md` —
+  deploy Linux/NiFi, attivazione e diagnosi
+- `nifi/Schedulazione_Caricamenti/doc/03_esempi_schedulazioni_dwh.md` — esempi
+  di configurazione delle frequenze
 - `ddl/hcbi_ras/procedure/pkg_stg_anag_utenti_prc_main.sql` — esempio
   completo di procedura STG da usare come template
 - `ddl/hcbi_utility/procedure/prc_execute_chain__bigint.sql` — motore di
