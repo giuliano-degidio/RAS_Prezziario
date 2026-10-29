@@ -25,7 +25,11 @@ Manual trigger
     v
 Run sequential full refresh
     |
-    | output stream, exit code 0
+    | output stream
+    v
+Gate DWH on frontiere success marker (ExtractText)
+    |
+    | matched: FMR_EXECUTION_UUID valido
     v
 Run DWH refresh chain 1
     |
@@ -36,9 +40,13 @@ Run DWH refresh chain 1
 Run sequential full refresh
     |
     +-- nonzero status --> Log frontiere failed
+
+Gate DWH on frontiere success marker
+    |
+    +-- unmatched / failure --> Terminate (DWH non avviato)
 ```
 
-Il refresh del DWH parte soltanto quando tutte le frontiere attive hanno terminato senza stati `FAILED` o `SKIPPED`.
+Il runner emette `FMR_EXECUTION_UUID=<uuid>` su stdout soltanto dopo il completamento corretto di tutte le frontiere. I log applicativi vanno su stderr e nel file di log. Il gate NiFi inoltra al refresh DWH solo il contenuto che contiene un marker UUID valido; senza marker, il ramo viene terminato e il DWH non parte.
 
 Entrambi i processor `ExecuteStreamCommand` hanno la relationship:
 
@@ -47,6 +55,7 @@ original -> Terminate = true
 ```
 
 Questo evita che i processor risultino invalidi per relationship non gestite.
+Anche `unmatched` e `failure` del gate sono auto-terminate.
 
 ---
 
@@ -148,7 +157,7 @@ Lo script:
 /opt/etl/frontiere-metadata-runner/scripts/run_dwh_refresh.py
 ```
 
-riceve tramite standard input l'output del runner delle frontiere e recupera il marker:
+riceve tramite standard input il contenuto stdout del runner, inoltrato dal gate NiFi solo se il marker è valido:
 
 ```text
 FMR_EXECUTION_UUID=<uuid>
@@ -428,6 +437,30 @@ Permessi proposti:
 
 L'owner deve essere l'utenza che esegue NiFi e gli script, negli esempi `nifi:nifi`.
 
+### Permessi di esecuzione per NiFi
+
+`ExecuteStreamCommand` esegue i comandi con l'identità OS del servizio NiFi; in
+questa installazione l'utenza prevista è `nifi`. Questa utenza deve poter
+attraversare le directory del percorso, eseguire l'interprete Python e gli
+script `.sh` usati come `Command Path`, leggere gli script Python passati come
+argomenti e scrivere nelle directory di log. I file `.py` invocati come
+`python file.py` devono essere leggibili, non necessariamente eseguibili.
+
+Verificare sul server che il servizio NiFi usi l'utenza attesa e che i permessi siano sufficienti:
+
+```bash
+sudo systemctl show nifi.service -p User --value
+sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/.venv/bin/python
+sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/bin/launch_manual_dwh_run.sh
+sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/bin/run_group_cycle.sh
+sudo -u nifi test -r /opt/etl/frontiere-metadata-runner/scripts/dwh_schedule_runner.py
+sudo -u nifi test -w /opt/etl/log/dwh-scheduler
+```
+
+Ogni comando deve terminare con codice `0`. Preferire permessi assegnati
+all'owner/gruppo `nifi` (ad esempio `nifi:nifi` e `0750` per gli eseguibili)
+anziché abilitare l'esecuzione a tutti gli utenti.
+
 ---
 
 ## 12. Prerequisiti
@@ -683,7 +716,10 @@ Il deployer:
 - crea `FRONTIERE_METADATA_RUNNER` sotto root;
 - crea il trigger manuale;
 - crea i due `ExecuteStreamCommand`;
+- crea `Gate DWH on frontiere success marker` (`ExtractText`);
 - collega i rami di successo e di errore;
+- collega il DWH soltanto alla relationship `matched` del gate;
+- auto-termina `unmatched` e `failure` del gate;
 - imposta `original -> Terminate = true` su entrambi;
 - verifica via REST API l'auto-terminazione;
 - lascia il Process Group fermo;
@@ -693,8 +729,10 @@ Output atteso:
 
 ```text
 [OK] Process Group creato STOPPED: FRONTIERE_METADATA_RUNNER (...)
-[OK] Frontiere -> DWH chain 1; original terminate=true su entrambi
+[OK] Frontiere -> gate FMR_EXECUTION_UUID -> DWH chain 1; output senza marker terminato
 ```
+
+Il deployer crea un Process Group nuovo e interrompe l'esecuzione se il gruppo esiste già; non aggiorna un flow NiFi live. Per un'installazione esistente, fermare il gruppo e salvarne un export di backup prima dell'aggiornamento. Prima di riattivarlo, verificare che non restino FlowFile accodati sul vecchio collegamento diretto frontiere-DWH: solo i FlowFile passati dal gate devono poter raggiungere il refresh.
 
 ---
 
@@ -720,11 +758,20 @@ Relationship:
 
 ```text
 original         Terminate = true
-output stream    collegata a Run DWH refresh chain 1
+output stream    collegata a Gate DWH on frontiere success marker
 nonzero status   collegata a Log frontiere failed
 ```
 
-### 17.2 `Run DWH refresh chain 1`
+### 17.2 `Gate DWH on frontiere success marker`
+
+```text
+FMR_EXECUTION_UUID  (?m)^FMR_EXECUTION_UUID=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$
+matched             collegata a Run DWH refresh chain 1
+unmatched           Terminate = true
+failure             Terminate = true
+```
+
+### 17.3 `Run DWH refresh chain 1`
 
 ```text
 Ignore STDIN = false
@@ -738,7 +785,7 @@ output stream    collegata a Log DWH refresh completed
 nonzero status   collegata a Log DWH refresh failed
 ```
 
-Il secondo processor deve ricevere il contenuto prodotto dal primo, perché contiene il marker dell'execution UUID.
+Il processor DWH deve ricevere l'output del runner solo attraverso `matched` del gate; non deve esistere una connessione diretta dal runner delle frontiere al DWH. Il runner scrive i log su stderr e nel file, riservando stdout al marker di successo.
 
 ---
 
@@ -830,7 +877,7 @@ tail -n 100 \
 
 - Input: query sorgente errata.
 - Atteso: `FAILED`, errore registrato, refresh DWH non avviato.
-- Verifica: assenza di un run DWH con lo stesso execution UUID.
+- Verifica: assenza di un run DWH con lo stesso execution UUID; il gate auto-termina l'output senza marker e non viene creato un nuovo run DWH per il ciclo fallito.
 
 ### T04 - Errore scrittura target
 
@@ -953,6 +1000,8 @@ Se il server viene riavviato durante un caricamento, verificare run `RUNNING`, l
 - [ ] script compilati senza errori;
 - [ ] Process Group creato e fermo;
 - [ ] `original -> Terminate = true` su entrambi i processor;
+- [ ] DWH collegato soltanto a `matched` del gate UUID;
+- [ ] `unmatched` e `failure` del gate auto-terminate;
 - [ ] `Ignore STDIN = false` sul refresh DWH;
 - [ ] primo `Run Once` completato;
 - [ ] log frontiere verificato;

@@ -4,8 +4,11 @@
 
 Il database live è stato verificato in sola lettura il 2026-10-29: tabelle,
 vincoli, indici, trigger e privilegi corrispondono alle DDL locali. Sono presenti
-otto configurazioni distinte: `DWH_REFRESH_DAILY` è abilitata e le altre sette
-sono disabilitate. L'ultimo run registrato è `MANUAL_UI` / `SUCCESS`.
+otto configurazioni distinte: `DWH_REFRESH_WEEKLY` è abilitata e le altre sette
+sono disabilitate; `last_success_period_start` è `2026-10-26`. I due run manuali
+più recenti sono `MANUAL_UI` / `SUCCESS`; il secondo è stato eseguito senza un
+periodo dovuto. Nell'audit consultato non compaiono run `SCHEDULED`, ma lo stato
+live del timer systemd non è stato interrogato direttamente.
 
 L'utente riferisce di aver applicato le modifiche Linux e NiFi; il run manuale
 riuscito è visibile nell'audit. Lo stato del timer systemd e il flow NiFi live
@@ -149,6 +152,12 @@ eseguirla solo con approvazione e in una finestra controllata.
 
 ## 4. Abilitazione controllata
 
+L'avvio automatico è previsto con un timer `systemd`, non con `cron`. Il file
+`deploy/unix-linux/dwh-scheduler.timer` avvia ogni giorno alle 03:00
+(`Europe/Rome`) il runner che valuta `hcbi_utility.dwh_schedule`; la tabella
+decide se il periodo settimanale o di altra frequenza è dovuto. L'installer
+installa il timer ma non lo abilita né lo avvia.
+
 Questa procedura vale per una nuova installazione. Sul target live, verificare
 prima lo stato effettivo del timer: non abilitarlo o riavviarlo alla cieca. Per
 un nuovo host, concordare data di attivazione, finestra giornaliera e rollback;
@@ -158,10 +167,14 @@ approvazione operativa:
 ```bash
 sudo systemctl enable --now dwh-scheduler.timer
 sudo systemctl list-timers dwh-scheduler.timer
+# Valutazione immediata facoltativa; può avviare il refresh se è dovuto.
+sudo systemctl start dwh-scheduler.service
 ```
 
-Non usare `systemctl start dwh-scheduler.service` come test generico: il batch
-valuta la data corrente e può avviare subito il refresh se è dovuto.
+`systemctl start dwh-scheduler.service` avvia subito una valutazione in modalità
+`scheduled`; non è necessario per abilitare il timer e va usato solo se si vuole
+deliberatamente anticipare la valutazione, in una finestra approvata. Se la
+schedulazione è dovuta, può partire un refresh reale.
 
 ## 5. Monitoraggio e diagnosi
 
@@ -196,14 +209,24 @@ NiFi e nell'audit/log che non sia ancora in corso un refresh.
 4. Se il launcher resta attivo, fermarlo dalla UI e controllare il log prima di
    riprovare. Non avviare direttamente `FRONTIERE_METADATA_RUNNER`.
 
-Il Process Group business `FRONTIERE_METADATA_RUNNER` rimane visibile e
-inalterato. Il suo `GenerateFlowFile` (periodo di un giorno) resta un trigger
-tecnico usato dal wrapper, non un punto di accesso per operatori. Il gruppo
+Il Process Group business `FRONTIERE_METADATA_RUNNER` rimane visibile; il
+percorso verso il DWH include il gate `ExtractText`, che inoltra l'output del
+runner soltanto quando contiene `FMR_EXECUTION_UUID=<uuid>`, marker emesso dopo
+il successo completo delle frontiere. Senza marker il refresh DWH non viene
+avviato. Il `GenerateFlowFile` (periodo di un giorno) resta un trigger tecnico
+usato dal wrapper, non un punto di accesso per operatori. Il gruppo
 `DWH_MANUAL_LAUNCH` è il solo entry point manuale UI: il suo trigger invia una
 richiesta e il runner lo ferma. Se il run manuale coincide con un periodo dovuto,
 un successo aggiorna quel periodo; fuori finestra non consuma una scadenza
 futura. Per evitare run senza lock/audit, non avviare il wrapper FMR o il gruppo
 business manualmente al di fuori di questo percorso.
+
+Il launcher UI è un override manuale, non un controllo della scadenza: un
+nuovo avvio riesegue frontiere e DWH anche se il periodo settimanale è già stato
+completato. In quel caso i campi del periodo nell'audit sono nulli e
+`last_success_period_start` non avanza. Per ottenere `SKIPPED` dopo un successo
+del periodo deve operare il modo `scheduled` del timer; una richiesta manuale
+può comunque essere `SKIPPED` se il lock è occupato.
 
 ## 7. Rollback
 

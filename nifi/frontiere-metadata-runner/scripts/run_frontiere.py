@@ -30,7 +30,7 @@ def setup_logging(log_dir):
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
     file_handler = RotatingFileHandler(path / "frontiere-metadata-runner.log", maxBytes=20_000_000, backupCount=10, encoding="utf-8")
     file_handler.setFormatter(formatter)
-    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler = logging.StreamHandler(sys.stderr)
     stream_handler.setFormatter(formatter)
     logger.handlers[:] = [file_handler, stream_handler]
     return logger
