@@ -346,6 +346,33 @@ Il progetto non deve scrivere nei log:
 - token NiFi;
 - contenuto decifrato del file dei segreti.
 
+### 9.1 Riversamento in `hcbi_utility`
+
+Il runner scheduler può acquisire, a fine ciclo, i soli byte aggiunti ai tre log
+FMR/scheduler. L'integrazione è nel runner esterno, non nei processor NiFi; è
+best effort e non modifica il risultato o l'exit code del ciclo. È disabilitata
+per default con `FMR_LOG_INGESTION_ENABLED=false`.
+
+Le sorgenti allowlist sono `dwh-scheduler.log`, `dwh-refresh.log` e
+`frontiere-metadata-runner.log`. Il runner delimita gli offset mentre detiene il
+lock globale; device/inode, dimensione e fingerprint proteggono da rotazione e
+troncamento. Gli eventi multilinea vengono conservati come un unico messaggio,
+con offset byte e stato di correlazione esplicito. Un vincolo univoco impedisce
+duplicati; gli errori d'ingestione sono registrati separatamente.
+
+Il modello è composto da `hcbi_utility.etl_execution_log_ingestion` (audit) e
+`hcbi_utility.etl_execution_log_event` (eventi). Applicare prima
+`ddl/hcbi_utility/table/etl_execution_log_ingestion.sql`, poi
+`ddl/hcbi_utility/table/etl_execution_log_event.sql`. Le verifiche sono in
+`sql/03_verify_log_ingestion.sql`. Lo script Python è
+`scripts/load_execution_logs.py`; i test locali sono in
+`tests/test_load_execution_logs.py`.
+
+Per configurazione, rollout, limiti, recupero e rollback consultare
+`doc/design/LOG_INGESTION_HIGH_LEVEL_DESIGN.md` e
+`doc/operations/RUNBOOK_LOG_INGESTION_NIFI.md`. Non abilitare l'opzione prima
+dell'applicazione dei DDL e della verifica dei grant.
+
 ---
 
 ## 10. Lock e concorrenza
@@ -413,6 +440,7 @@ ps -ef | grep '[r]un_dwh_refresh.py'
     ├── config/
     │   └── fmr-secrets.template.json
     ├── scripts/
+    │   ├── load_execution_logs.py
     │   ├── deploy_nifi_flow.py
     │   ├── encrypt_fmr_secrets.py
     │   ├── run_frontiere.py
@@ -421,7 +449,8 @@ ps -ef | grep '[r]un_dwh_refresh.py'
     │   └── validate_fmr_secrets.py
     └── sql/
         ├── 01_create_hcbi_utility_etl_dwh_refresh_run.sql
-        └── 02_verify_runtime.sql
+        ├── 02_verify_runtime.sql
+        └── 03_verify_log_ingestion.sql
 ```
 
 Permessi proposti:

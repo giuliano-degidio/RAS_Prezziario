@@ -223,6 +223,10 @@ $ sudo systemctl show nifi.service -p User --value
 $ sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/.venv/bin/python
 $ sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/bin/launch_manual_dwh_run.sh
 $ sudo -u nifi test -r /opt/etl/frontiere-metadata-runner/scripts/dwh_schedule_runner.py
+$ sudo -u nifi test -r /opt/etl/frontiere-metadata-runner/scripts/load_execution_logs.py
+$ sudo -u nifi test -r /opt/etl/log/dwh-scheduler/dwh-scheduler.log
+$ sudo -u nifi test -r /opt/etl/log/frontiere-metadata-runner/dwh-refresh.log
+$ sudo -u nifi test -r /opt/etl/log/frontiere-metadata-runner/frontiere-metadata-runner.log
 $ sudo -u nifi test -w /opt/etl/log/dwh-scheduler
 ```
 
@@ -285,6 +289,24 @@ Inserire la schedulazione approvata usando gli esempi in
 `enabled=false` e abilitarla solo dopo aver verificato i parametri. Verificare che
 ci sia una sola riga abilitata e che calendario, giorno settimanale e retry siano
 quelli approvati. Il DDL non inserisce una schedulazione iniziale.
+
+L'ingestione dei log è un'estensione opzionale del runner scheduler. Per un
+nuovo ambiente, dopo aver verificato che il login HCBI erediti i privilegi del
+ruolo `hcbi_ras`, applicare in ordine i due DDL (richiedono un ruolo DBA in grado
+di assegnare owner e grant):
+
+```bash
+$ psql -v ON_ERROR_STOP=1 -d hcbi \
+    -f ddl/hcbi_utility/table/etl_execution_log_ingestion.sql
+$ psql -v ON_ERROR_STOP=1 -d hcbi \
+    -f ddl/hcbi_utility/table/etl_execution_log_event.sql
+$ psql -v ON_ERROR_STOP=1 -d hcbi \
+    -f nifi/frontiere-metadata-runner/sql/03_verify_log_ingestion.sql
+```
+
+Il primo DDL crea l'audit; il secondo gli eventi. Non abilitare l'opzione se
+mancano le tabelle o i grant. Gli script SQL sono soltanto preparati nel
+repository: non vengono applicati automaticamente dall'installer.
 
 Popolare/validare `hcbi_utility.etl_frontiere_config` con le frontiere da
 attivare (`enabled=true`, `execution_order`, query sorgente) secondo le
@@ -436,9 +458,13 @@ repository eseguire come root:
 ```
 
 Rivedere `/etc/sysconfig/dwh-scheduler` (percorsi e timeout; non contiene
-credenziali). L'installer la crea solo se assente, installa runner, launcher,
-unità service/timer e configurazione logrotate, e lascia il timer disattivato.
-Verificare anche unità e permessi:
+credenziali). L'installer la crea solo se assente, installa runner, loader dei log,
+launcher, unità service/timer e configurazione logrotate, e lascia il timer
+disattivato. Il loader viene copiato in
+`scripts/load_execution_logs.py`; `FMR_LOG_INGESTION_ENABLED` resta `false` per
+default e il file sysconfig esistente viene preservato. Prima di abilitarla,
+applicare e verificare i DDL del §7 e controllare che `nifi` possa leggere i tre
+log. Verificare anche unità e permessi:
 
 ```bash
 # systemd-analyze verify /etc/systemd/system/dwh-scheduler.service \
@@ -512,7 +538,41 @@ LIMIT 20;
 ```
 
 Per i run del timer ci si aspetta `trigger_source='SCHEDULED'`; il launcher UI
-registra `MANUAL_UI`. Per il deploy dettagliato, consultare
+registra `MANUAL_UI`.
+
+Dopo un collaudo autorizzato, abilitare il riversamento aggiungendo a
+`/etc/sysconfig/dwh-scheduler`:
+
+```text
+FMR_LOG_INGESTION_ENABLED=true
+```
+
+La modifica viene letta al successivo avvio del servizio. Il loader acquisisce i
+segmenti dopo il ciclo e prima di rilasciare il lock; un errore resta nell'audit
+tecnico e non cambia l'esito business. Per controllare gli esiti:
+
+```sql
+SELECT ingestion_id, source_code, status, events_read, events_inserted,
+       events_duplicate, events_rejected, bytes_read, error_code, started_at
+FROM hcbi_utility.etl_execution_log_ingestion
+ORDER BY started_at DESC
+LIMIT 30;
+```
+
+Per il retry di un tentativo `FAILED`, eseguire prima il dry-run e poi, solo dopo
+averne esaminato il risultato, rilanciare senza `--dry-run`:
+
+```bash
+$ sudo -u nifi /opt/etl/frontiere-metadata-runner/.venv/bin/python \
+    /opt/etl/frontiere-metadata-runner/scripts/load_execution_logs.py \
+    --retry-ingestion-id <INGESTION_ID> --dry-run
+```
+
+Il retry è limitato al file/offset registrato e richiede che device/inode siano
+ancora disponibili. Per disabilitare la funzione impostare di nuovo
+`FMR_LOG_INGESTION_ENABLED=false`; non eliminare le tabelle o lo storico.
+
+Per il deploy dettagliato, consultare
 `nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md`.
 
 ---
@@ -620,6 +680,7 @@ scheduler (§11) e non avviare il timer come semplice test.
 | NiFi non riesce a eseguire uno script o non produce log | L'utente OS del servizio NiFi non può eseguire l'interprete o il launcher, leggere lo script, oppure scrivere nella directory log | Verificare `User` di `nifi.service` e i comandi `test -x`, `test -r` e `test -w` eseguiti come `nifi` (§6 e §11); concedere i permessi minimi necessari |
 | Un avvio manuale ripete un periodo già completato | `DWH_MANUAL_LAUNCH` forza l'esecuzione e ignora la scadenza | Comportamento previsto; usare il timer `systemd` in modalità `scheduled` per applicare la regola di skip (§11) |
 | Il timer non avvia valutazioni | `dwh-scheduler.timer` non è abilitato oppure il servizio/configurazione ha errori | Verificare `systemctl list-timers`, `systemctl status` e `journalctl`; controllare `/etc/sysconfig/dwh-scheduler` e l'audit (§11) |
+| Audit ingestione log `FAILED` o nessun evento caricato | DDL/grant mancanti, log non leggibili da `nifi`, rotazione, limiti segmento/evento o DB non disponibile | Verificare `FMR_LOG_INGESTION_ENABLED`, i permessi dei tre file e `error_code`/contatori nell'audit; disabilitare l'opzione se necessario e seguire il runbook |
 | Frontiera in stato `SKIPPED` | Lock per quel `frontiera_code` non acquisito (altra esecuzione in corso/residua) | Verificare `etl_frontiere_execution_lock`; se residua da crash, eliminare la riga manualmente dopo aver confermato che nessun processo è realmente attivo |
 | Il DWH refresh non parte mai | Almeno una frontiera non `SUCCEEDED` nel ciclo (`run_frontiere.py` esce con codice ≠0 se c'è anche un solo `FAILED`/`SKIPPED`) | Controllare `etl_frontiere_run` per la riga non riuscita, correggere la causa, rilanciare |
 | `run_group_cycle.py` termina con exit code 5 (timeout) | Query sorgente lenta, DB irraggiungibile, o timeout troppo basso | Alzare `--frontiere-timeout`/`--dwh-timeout`; controllare log `/opt/etl/log/frontiere-metadata-runner/` |
@@ -632,7 +693,7 @@ scheduler (§11) e non avviare il timer come semplice test.
 
 ## 16. Rollback / disinstallazione
 
-1. Disabilitare lo scheduler e fermare l'eventuale servizio: `systemctl disable --now dwh-scheduler.timer` e `systemctl stop dwh-scheduler.service`.
+1. Se l'ingestione log è abilitata, impostare `FMR_LOG_INGESTION_ENABLED=false`. Poi disabilitare lo scheduler e fermare l'eventuale servizio: `systemctl disable --now dwh-scheduler.timer` e `systemctl stop dwh-scheduler.service`.
 2. Fermare ed eliminare i process group dalla UI NiFi (Stop → Delete).
 3. Rimuovere le unità `dwh-scheduler.service`, `dwh-scheduler.timer` e la
    configurazione logrotate, quindi eseguire `systemctl daemon-reload`. Conservare
@@ -655,6 +716,8 @@ scheduler (§11) e non avviare il timer come semplice test.
 
 - `nifi/frontiere-metadata-runner/README.md` — architettura, gate del marker,
   permessi, semantica transazionale, logging, lock e test di accettazione
+- `doc/design/LOG_INGESTION_HIGH_LEVEL_DESIGN.md` e
+  `doc/operations/RUNBOOK_LOG_INGESTION_NIFI.md` — design e runbook del riversamento log
 - `nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md` — DDL,
   installazione, attivazione, monitoraggio e rollback del timer DWH
 - `nifi/Schedulazione_Caricamenti/doc/01_progettazione_scheduler_dwh.md` —

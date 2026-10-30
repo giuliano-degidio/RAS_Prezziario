@@ -289,7 +289,7 @@ def reconcile_interrupted_runs(conninfo, logger) -> None:
 def insert_terminal_run(conninfo, schedule: Schedule, status: str, message: str,
                         trigger_source: str, requested_by: str | None = None,
                         candidate: Candidate | None = None,
-                        update_summary: bool = True) -> None:
+                        update_summary: bool = True) -> uuid.UUID:
     run_id = uuid.uuid4()
     with connect_db(conninfo) as conn:
         conn.execute(
@@ -313,6 +313,7 @@ def insert_terminal_run(conninfo, schedule: Schedule, status: str, message: str,
                 "WHERE schedule_id=%s",
                 (status, message[:4000], schedule.schedule_id),
             )
+    return run_id
 
 
 def start_run(conninfo, schedule: Schedule, candidate: Candidate | None,
@@ -517,6 +518,13 @@ def main() -> int:
     candidate = None
     run_id = None
     run_started = None
+    log_snapshot = None
+    source_paths = None
+    cycle_result = "FAILED"
+    cycle_exit_code = 1
+    ingest_logs = os.getenv("FMR_LOG_INGESTION_ENABLED", "false").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
     trigger_source = "SCHEDULED" if args.mode == "scheduled" else "MANUAL_UI"
     requested_by = args.requested_by if args.mode == "manual-ui" else None
     try:
@@ -546,19 +554,33 @@ def main() -> int:
                            trigger_source)
             schedules = load_enabled_schedules(conninfo)
             if len(schedules) == 1:
-                insert_terminal_run(
+                run_id = insert_terminal_run(
                     conninfo, schedules[0], "SKIPPED",
                     "Richiesta non avviata: esiste un'altra esecuzione attiva",
                     trigger_source, requested_by, update_summary=False,
                 )
-            return 75 if args.mode == "manual-ui" else 0
+            cycle_result = "SKIPPED"
+            cycle_exit_code = 75 if args.mode == "manual-ui" else 0
+            return cycle_exit_code
+
+        if ingest_logs:
+            try:
+                if args.scripts_dir not in sys.path:
+                    sys.path.insert(0, args.scripts_dir)
+                from load_execution_logs import capture_log_sources, configured_sources
+
+                source_paths = configured_sources(args.log_file, args.fmr_log_dir)
+                log_snapshot = capture_log_sources(source_paths)
+            except (ImportError, OSError, ValueError):
+                logger.exception("Impossibile acquisire gli offset iniziali dei log; ciclo invariato")
 
         reconcile_interrupted_runs(conninfo, logger)
         schedules = load_enabled_schedules(conninfo)
         if len(schedules) != 1:
             logger.error("Attese esattamente una schedulazione abilitata; trovate %d",
                          len(schedules))
-            return 2
+            cycle_result, cycle_exit_code = "FAILED", 2
+            return cycle_exit_code
         schedule = schedules[0]
         now = datetime.now(ZoneInfo(args.timezone))
         decision = evaluate_schedule(schedule, now.date())
@@ -567,11 +589,12 @@ def main() -> int:
             message = "SKIPPED: " + decision.reason
             logger.info("Processo %s non dovuto: %s",
                         schedule.process_code, decision.reason)
-            insert_terminal_run(
+            run_id = insert_terminal_run(
                 conninfo, schedule, "SKIPPED", message,
                 trigger_source, requested_by,
             )
-            return 0
+            cycle_result, cycle_exit_code = "SKIPPED", 0
+            return cycle_exit_code
 
         if args.mode == "manual-ui":
             if candidate is None:
@@ -598,6 +621,8 @@ def main() -> int:
         finish_run(conninfo, run_id, schedule, candidate, status,
                    return_code, duration_ms, message)
         logger.info("Run %s concluso con stato %s", run_id, status)
+        cycle_result = status
+        cycle_exit_code = return_code
         return return_code
     except Exception as exc:
         logger.exception("Errore scheduler: %s", exc)
@@ -609,14 +634,35 @@ def main() -> int:
                     finish_run(conninfo, run_id, schedule, candidate,
                                "FAILED", 1, duration_ms, message)
                 else:
-                    insert_terminal_run(
+                    run_id = insert_terminal_run(
                         conninfo, schedule, "FAILED", message,
                         trigger_source, requested_by, candidate,
                     )
             except Exception:
                 logger.exception("Impossibile registrare l'esito FAILED nel database")
-        return 1
+        cycle_result, cycle_exit_code = "FAILED", 1
+        return cycle_exit_code
     finally:
+        if log_snapshot is not None and source_paths is not None and conninfo is not None:
+            try:
+                for handler in logger.handlers:
+                    handler.flush()
+                if args.scripts_dir not in sys.path:
+                    sys.path.insert(0, args.scripts_dir)
+                from load_execution_logs import finalize_log_manifest, ingest_manifest
+
+                manifest = finalize_log_manifest(
+                    log_snapshot, source_paths,
+                    scheduler_run_id=str(run_id) if run_id is not None else None,
+                    execution_uuid=None, cycle_result=cycle_result,
+                    cycle_exit_code=cycle_exit_code, timezone=args.timezone,
+                )
+                outcomes = ingest_manifest(conninfo, manifest, source_paths)
+                logger.info("Log ingestion conclusa: %s",
+                            ", ".join(f"{item['source_code']}={item['status']}"
+                                       for item in outcomes))
+            except Exception:
+                logger.exception("Log ingestion fallita; esito originale del ciclo invariato")
         if lock_conn is not None:
             try:
                 lock_conn.close()

@@ -10,9 +10,14 @@ SERVICE_USER=nifi
 PROJECT_DIR=/opt/etl/frontiere-metadata-runner
 SOURCE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 NIFI_DEPLOY_HELPER="$SOURCE_DIR/../nifi/deploy_manual_launcher.py"
+LOG_INGESTION_SCRIPT="$SOURCE_DIR/../../../frontiere-metadata-runner/scripts/load_execution_logs.py"
 
 if [[ ! -f "$NIFI_DEPLOY_HELPER" ]]; then
     printf 'Helper di deploy NiFi non trovato: %s\n' "$NIFI_DEPLOY_HELPER" >&2
+    exit 1
+fi
+if [[ ! -f "$LOG_INGESTION_SCRIPT" ]]; then
+    printf 'Script di ingestione log non trovato: %s\n' "$LOG_INGESTION_SCRIPT" >&2
     exit 1
 fi
 if ! getent passwd "$SERVICE_USER" >/dev/null; then
@@ -38,6 +43,9 @@ install -d -m 0750 -o "$SERVICE_USER" -g "$SERVICE_GROUP" \
 install -m 0750 -o "$SERVICE_USER" -g "$SERVICE_GROUP" \
     "$SOURCE_DIR/dwh_schedule_runner.py" \
     "$PROJECT_DIR/scripts/dwh_schedule_runner.py"
+install -m 0750 -o "$SERVICE_USER" -g "$SERVICE_GROUP" \
+    "$LOG_INGESTION_SCRIPT" \
+    "$PROJECT_DIR/scripts/load_execution_logs.py"
 install -m 0644 "$SOURCE_DIR/dwh-scheduler.service" \
     /etc/systemd/system/dwh-scheduler.service
 install -m 0750 -o "$SERVICE_USER" -g "$SERVICE_GROUP" \

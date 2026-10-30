@@ -249,6 +249,8 @@ FlowFile al refresh DWH (§6). A ciclo riuscito, stdout è riservato al marker
 | `etl_frontiere_execution_lock` | lock applicativo per frontiera, a riposo deve essere sempre vuota |
 | `etl_dwh_refresh_run` | log per esecuzione della chain DWH lanciata da NiFi (`execution_uuid`, `chain_id`, stato `RUNNING`/`SUCCEEDED`/`FAILED`/`SKIPPED`) |
 | `dwh_schedule_run` | audit del runner scheduler: un tentativo per avvio, con `trigger_source` (`SCHEDULED`/`MANUAL_UI`), periodo, stato (`RUNNING`/`SUCCESS`/`FAILED`/`SKIPPED`) ed errore |
+| `etl_execution_log_ingestion` | audit tecnico per ogni tentativo di riversamento di un segmento dei log; esito separato dal ciclo business, offset, contatori e retry |
+| `etl_execution_log_event` | eventi multilinea dei log FMR/scheduler, con offset byte, correlazione, stato parsing e testo redatto |
 
 ### 5.3 Procedure di orchestrazione
 
@@ -314,6 +316,20 @@ default); dopo il ciclo registra `SUCCESS` o `FAILED` in `dwh_schedule_run`.
 Un'interruzione può lasciare un tentativo `RUNNING`, riconciliato a `FAILED` al
 successivo avvio.
 
+Il riversamento dei log applicativi è opzionale e disabilitato per default. Per
+abilitarlo, sul server dello scheduler modificare `/etc/sysconfig/dwh-scheduler`
+e impostare:
+
+```text
+FMR_LOG_INGESTION_ENABLED=true
+```
+
+L'installer crea il file sysconfig solo se assente e preserva quello esistente.
+La variabile viene letta al successivo avvio di `dwh-scheduler.service`: non è
+necessario riavviare NiFi né eseguire `systemctl daemon-reload`. Abilitare la
+funzione solo dopo aver applicato e verificato i DDL delle tabelle di ingestione
+e i grant PostgreSQL. Per disabilitarla impostare nuovamente il valore a `false`.
+
 L'avvio manuale operativo passa invece dal Process Group `DWH_MANUAL_LAUNCH`,
 che lancia lo stesso runner in modalità `manual-ui`. Questa modalità richiede una
 configurazione abilitata ma ignora la data pianificata: ogni richiesta può
@@ -340,6 +356,22 @@ di calendario e i casi d'esempio sono in
 `nifi/Schedulazione_Caricamenti/doc/01_progettazione_scheduler_dwh.md` e
 `nifi/Schedulazione_Caricamenti/doc/03_esempi_schedulazioni_dwh.md`.
 
+### 5.5 Riversamento dei log applicativi
+
+Il runner scheduler può archiviare dopo ogni ciclo soltanto i byte aggiunti a
+`dwh-scheduler.log`, `dwh-refresh.log` e `frontiere-metadata-runner.log`. La
+funzione è opzionale (`FMR_LOG_INGESTION_ENABLED=false` per default) e non
+modifica l'esito business. Il lock resta acquisito fino alla chiusura degli
+intervalli per evitare sovrapposizioni tra cicli.
+
+Il parser conserva eventi multilinea, applica redazione ai pattern noti e non
+associa eventi a UUID per prossimità temporale. Gli eventi senza identificativo
+restano disponibili come `UNCORRELATED`; segnali discordanti sono `AMBIGUOUS`.
+La deduplicazione usa device/inode e offset; i batch sono atomici e il retry di
+un audit `FAILED` punta al tentativo originale. I DDL, le verifiche e il runbook
+sono descritti in `doc/design/LOG_INGESTION_HIGH_LEVEL_DESIGN.md` e
+`doc/operations/RUNBOOK_LOG_INGESTION_NIFI.md`.
+
 ---
 
 ## 6. Orchestrazione NiFi e scheduler DWH
@@ -357,6 +389,11 @@ systemd timer (ogni giorno alle 03:00 Europe/Rome)
 
 UI: DWH_MANUAL_LAUNCH -> runner dwh_schedule_runner.py (mode manual-ui)
                           -> stesso wrapper e stesso Process Group business
+
+A ciclo concluso, se l'opt-in è attivo:
+  -> snapshot dei tre log -> load_execution_logs.py
+       -> hcbi_utility.etl_execution_log_ingestion
+       -> hcbi_utility.etl_execution_log_event
 ```
 
 Il timer si attiva ogni giorno, ma non equivale a un refresh giornaliero: il
@@ -384,7 +421,9 @@ del launcher. `dwh_schedule_run` registra `SCHEDULED` o `MANUAL_UI` e stati
 il canale `NiFi-UI`, non l'utente autenticato. I log FMR sono in
 `/opt/etl/log/frontiere-metadata-runner/`; il log scheduler è
 `/opt/etl/log/dwh-scheduler/dwh-scheduler.log`, con output disponibile anche nel
-journal systemd. Per controllare gli ultimi tentativi:
+journal systemd. Il riversamento DB è un passo best effort dopo il risultato del
+ciclo e produce un proprio audit; non sostituisce i file sorgente e non rimuove
+né ruota i log. Per controllare gli ultimi tentativi:
 
 ```sql
 SELECT run_id, process_code, trigger_source, planned_date, period_start,
@@ -474,6 +513,8 @@ Convenzioni repository:
 - `nifi/frontiere-metadata-runner/README.md` — dettaglio completo
   dell'orchestrazione NiFi
 - `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di deploy NiFi e scheduler
+- `doc/design/LOG_INGESTION_HIGH_LEVEL_DESIGN.md` e
+  `doc/operations/RUNBOOK_LOG_INGESTION_NIFI.md` — design e runbook del riversamento log
 - `nifi/Schedulazione_Caricamenti/doc/01_progettazione_scheduler_dwh.md` —
   modello dati, calendario e semantica dei run automatici/manuali
 - `nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md` —
