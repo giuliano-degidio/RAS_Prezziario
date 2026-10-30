@@ -513,210 +513,19 @@ Questi prerequisiti devono essere verificati nell'ambiente target. Il pacchetto 
 
 ---
 
-## 13. Installazione completa da zero
+## 13. Installazione e packaging
 
-### 13.1 Pulizia del precedente deploy
+La procedura completa per sistemisti, inclusi manifest dei file, preparazione
+degli archivi, destinazioni e installazione NiFi/FMR/scheduler, è mantenuta nel
+manuale canonico `doc/deploy/MANUALE_DEPLOY_NIFI.md`. Questo README resta il
+riferimento tecnico su architettura e comportamento del runner.
 
-Fermare il Process Group:
+## 14. Credenziali e segreti
 
-```text
-FRONTIERE_METADATA_RUNNER
-```
+La creazione, cifratura, validazione e rotazione dei segreti sono descritte nel
+manuale canonico. Non versionare la chiave Fernet né file con credenziali in
+chiaro o cifrate.
 
-Verificare che non siano presenti processi attivi:
-
-```bash
-ps -ef | grep '[r]un_frontiere.py'
-ps -ef | grep '[r]un_dwh_refresh.py'
-```
-
-Verificare i lock residui:
-
-```sql
-SELECT
-    l.frontiera_code,
-    l.run_id,
-    l.acquired_at,
-    l.acquired_by,
-    r.status,
-    r.started_at,
-    r.ended_at
-FROM hcbi_utility.etl_frontiere_execution_lock AS l
-JOIN hcbi_utility.etl_frontiere_run AS r
-  ON r.run_id = l.run_id
-ORDER BY l.acquired_at;
-```
-
-Dalla UI NiFi eliminare il Process Group precedente.
-
-Il deployer interrompe l'operazione se trova già un Process Group omonimo.
-
-### 13.2 Estrazione del pacchetto
-
-```bash
-rm -rf /tmp/fmr-v0.4
-mkdir -p /tmp/fmr-v0.4
-
-unzip frontiere-metadata-runner-v0.4-full.zip \
-  -d /tmp/fmr-v0.4
-```
-
-Entrare nella directory estratta che contiene `README.md`, `bin`, `scripts` e `sql`.
-
-### 13.3 Creazione della tabella di log DWH
-
-Eseguire sul database `hcbi`:
-
-```bash
-psql \
-  -f sql/01_create_hcbi_utility_etl_dwh_refresh_run.sql
-```
-
-Verificare:
-
-```sql
-SELECT
-    column_name,
-    data_type,
-    is_nullable
-FROM information_schema.columns
-WHERE table_schema = 'hcbi_utility'
-  AND table_name = 'etl_dwh_refresh_run'
-ORDER BY ordinal_position;
-```
-
-### 13.4 Installazione file
-
-```bash
-export FMR_SERVICE_USER=nifi
-export FMR_SERVICE_GROUP=nifi
-
-sudo -E bash bin/install_layout.sh
-```
-
-Lo script installa il progetto sotto:
-
-```text
-/opt/etl/frontiere-metadata-runner
-```
-
-Non elimina i file esterni dei segreti già presenti.
-
-### 13.5 Creazione del virtual environment
-
-Sul server il comando generico `python3` può puntare a Python 3.6. Usare esplicitamente Python 3.11:
-
-```bash
-rm -rf /opt/etl/frontiere-metadata-runner/.venv
-
-sudo -u nifi /usr/bin/python3.11 -m venv \
-  /opt/etl/frontiere-metadata-runner/.venv
-```
-
-Aggiornare gli strumenti di packaging:
-
-```bash
-sudo -u nifi \
-  /opt/etl/frontiere-metadata-runner/.venv/bin/python \
-  -m pip install --upgrade pip setuptools wheel
-```
-
-Installare le dipendenze:
-
-```bash
-sudo -u nifi \
-  /opt/etl/frontiere-metadata-runner/.venv/bin/python \
-  -m pip install \
-  -r /opt/etl/frontiere-metadata-runner/requirements.txt
-```
-
-Verificare:
-
-```bash
-sudo -u nifi \
-  /opt/etl/frontiere-metadata-runner/.venv/bin/python \
-  -c "import sys, cryptography, psycopg; \
-print(sys.version); \
-print('cryptography', cryptography.__version__); \
-print('psycopg', psycopg.__version__)"
-```
-
----
-
-## 14. Generazione e cifratura delle password
-
-### 14.1 File temporaneo in chiaro
-
-```bash
-umask 077
-
-cp /opt/etl/frontiere-metadata-runner/config/fmr-secrets.template.json \
-  /tmp/fmr-secrets.json
-
-chmod 0600 /tmp/fmr-secrets.json
-```
-
-Valorizzare:
-
-- URL, username e password NiFi;
-- JDBC URL, username e password RASOP;
-- JDBC URL, username e password HCBI;
-- `verify_ssl` per NiFi.
-
-Esempio di formato JDBC:
-
-```text
-jdbc:postgresql://host:5432/database
-```
-
-### 14.2 Cifratura
-
-```bash
-sudo -u nifi \
-  /opt/etl/frontiere-metadata-runner/.venv/bin/python \
-  /opt/etl/frontiere-metadata-runner/scripts/encrypt_fmr_secrets.py \
-  --input /tmp/fmr-secrets.json \
-  --key-file /opt/etl/secrets/fmr-secrets.key \
-  --output /opt/etl/config/fmr-secrets.json.enc \
-  --delete-input
-```
-
-Lo script:
-
-- valida le sezioni obbligatorie;
-- rifiuta placeholder non sostituiti;
-- genera una chiave Fernet se non esiste;
-- cifra integralmente il JSON;
-- salva chiave e file cifrato con permessi `0600`;
-- verifica immediatamente la decifratura;
-- elimina il file in chiaro con `--delete-input`;
-- non stampa le password.
-
-Se chiave e file cifrato esistenti sono già corretti, non è necessario rigenerarli.
-
-### 14.3 Validazione con connessione reale
-
-```bash
-sudo -u nifi \
-  /opt/etl/frontiere-metadata-runner/.venv/bin/python \
-  /opt/etl/frontiere-metadata-runner/scripts/validate_fmr_secrets.py \
-  --connect
-```
-
-Il comando deve verificare sia HCBI sia RASOP.
-
-### 14.4 Rotazione password
-
-Per cambiare le password mantenendo la chiave:
-
-1. creare un nuovo JSON temporaneo protetto;
-2. eseguire nuovamente `encrypt_fmr_secrets.py` senza eliminare la chiave;
-3. validare con `--connect`;
-4. eliminare il file temporaneo in chiaro.
-
-La chiave non deve essere versionata, inserita nei log o salvata insieme al file cifrato in un backup non protetto.
-
----
 
 ## 15. Verifica sintattica
 
@@ -731,164 +540,14 @@ L'assenza di output indica che gli script sono sintatticamente validi.
 
 ---
 
-## 16. Deploy NiFi da zero
+## 16. Deploy e verifica NiFi
 
-```bash
-sudo -u nifi \
-  /opt/etl/frontiere-metadata-runner/.venv/bin/python \
-  /opt/etl/frontiere-metadata-runner/scripts/deploy_nifi_flow.py
-```
+Il deploy del Process Group, le verifiche post-deploy e lo smoke test sono
+descritti nel manuale canonico `doc/deploy/MANUALE_DEPLOY_NIFI.md`. Questo
+documento mantiene i test di accettazione funzionale nella sezione 17.
 
-Il deployer:
 
-- autentica tramite le credenziali NiFi cifrate;
-- crea `FRONTIERE_METADATA_RUNNER` sotto root;
-- crea il trigger manuale;
-- crea i due `ExecuteStreamCommand`;
-- crea `Gate DWH on frontiere success marker` (`ExtractText`);
-- collega i rami di successo e di errore;
-- collega il DWH soltanto alla relationship `matched` del gate;
-- auto-termina `unmatched` e `failure` del gate;
-- imposta `original -> Terminate = true` su entrambi;
-- verifica via REST API l'auto-terminazione;
-- lascia il Process Group fermo;
-- interrompe il deploy se il Process Group esiste già.
-
-Output atteso:
-
-```text
-[OK] Process Group creato STOPPED: FRONTIERE_METADATA_RUNNER (...)
-[OK] Frontiere -> gate FMR_EXECUTION_UUID -> DWH chain 1; output senza marker terminato
-```
-
-Il deployer crea un Process Group nuovo e interrompe l'esecuzione se il gruppo esiste già; non aggiorna un flow NiFi live. Per un'installazione esistente, fermare il gruppo e salvarne un export di backup prima dell'aggiornamento. Prima di riattivarlo, verificare che non restino FlowFile accodati sul vecchio collegamento diretto frontiere-DWH: solo i FlowFile passati dal gate devono poter raggiungere il refresh.
-
----
-
-## 17. Verifica post-deploy nella UI NiFi
-
-### 17.1 `Run sequential full refresh`
-
-Proprietà runtime:
-
-```text
-FMR_SECRET_KEY_FILE
-FMR_ENCRYPTED_CONFIG
-FMR_LOG_DIR
-```
-
-Non deve essere presente:
-
-```text
-FMR_FLOWFILE_UUID
-```
-
-Relationship:
-
-```text
-original         Terminate = true
-output stream    collegata a Gate DWH on frontiere success marker
-nonzero status   collegata a Log frontiere failed
-```
-
-### 17.2 `Gate DWH on frontiere success marker`
-
-```text
-FMR_EXECUTION_UUID  (?m)^FMR_EXECUTION_UUID=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$
-matched             collegata a Run DWH refresh chain 1
-unmatched           Terminate = true
-failure             Terminate = true
-```
-
-### 17.3 `Run DWH refresh chain 1`
-
-```text
-Ignore STDIN = false
-```
-
-Relationship:
-
-```text
-original         Terminate = true
-output stream    collegata a Log DWH refresh completed
-nonzero status   collegata a Log DWH refresh failed
-```
-
-Il processor DWH deve ricevere l'output del runner solo attraverso `matched` del gate; non deve esistere una connessione diretta dal runner delle frontiere al DWH. Il runner scrive i log su stderr e nel file, riservando stdout al marker di successo.
-
----
-
-## 18. Primo collaudo
-
-Usare **Run Once** sul processor:
-
-```text
-Manual trigger
-```
-
-Verificare i run delle frontiere:
-
-```sql
-SELECT
-    run_id,
-    frontiera_code,
-    started_at,
-    ended_at,
-    status,
-    rows_read,
-    rows_written,
-    warning_message,
-    error_message,
-    nifi_flowfile_uuid
-FROM hcbi_utility.etl_frontiere_run
-ORDER BY run_id DESC
-LIMIT 20;
-```
-
-Verificare il refresh DWH:
-
-```sql
-SELECT
-    run_id,
-    execution_uuid,
-    chain_id,
-    started_at,
-    ended_at,
-    status,
-    error_message
-FROM hcbi_utility.etl_dwh_refresh_run
-ORDER BY run_id DESC
-LIMIT 20;
-```
-
-Verificare la correlazione:
-
-```sql
-SELECT
-    f.nifi_flowfile_uuid AS execution_uuid,
-    f.frontiera_code,
-    f.status AS frontiera_status,
-    d.chain_id,
-    d.status AS dwh_status
-FROM hcbi_utility.etl_frontiere_run AS f
-LEFT JOIN hcbi_utility.etl_dwh_refresh_run AS d
-  ON d.execution_uuid::text = f.nifi_flowfile_uuid
-ORDER BY f.run_id DESC;
-```
-
-Controllare i log filesystem:
-
-```bash
-tail -n 100 \
-  /opt/etl/log/frontiere-metadata-runner/frontiere-metadata-runner.log
-
-tail -n 100 \
-  /opt/etl/log/frontiere-metadata-runner/dwh-refresh.log
-```
-
----
-
-## 19. Test minimi di accettazione
+## 17. Test minimi di accettazione
 
 ### T01 - Caricamento frontiera riuscito
 
@@ -952,59 +611,21 @@ tail -n 100 \
 
 ---
 
-## 20. Riavvio del server
+## 18. Riavvio del server
 
-Il virtual environment è una directory persistente:
+Verifiche di persistenza, ripartenza dei servizi e controlli dopo reboot sono
+incluse nel manuale canonico `doc/deploy/MANUALE_DEPLOY_NIFI.md`.
 
-```text
-/opt/etl/frontiere-metadata-runner/.venv
-```
+## 19. Rollback
 
-Dopo un reboot non deve essere riattivato. NiFi usa direttamente:
-
-```text
-/opt/etl/frontiere-metadata-runner/.venv/bin/python
-```
-
-Il progetto continua a funzionare se:
-
-- `/opt/etl` è persistente e montato;
-- Python 3.11 resta installato;
-- `.venv` resta disponibile;
-- chiave e file cifrato sono leggibili da `nifi`;
-- NiFi riparte correttamente;
-- il flow è conservato dalla configurazione NiFi.
-
-Verifica runtime dopo il reboot:
-
-```bash
-sudo -u nifi \
-  /opt/etl/frontiere-metadata-runner/.venv/bin/python \
-  -c "import cryptography, psycopg; print('FMR runtime OK')"
-```
-
-Se il server viene riavviato durante un caricamento, verificare run `RUNNING`, lock residui e stato delle tabelle prima di rilanciare.
+La procedura di rollback applicativa è nel manuale canonico. Il rollback del
+database è separato e non va eseguito come parte del rollback FMR.
 
 ---
 
-## 21. Rollback
+## 20. Limiti e decisioni aperte
 
-1. fermare il Process Group;
-2. verificare che non siano attivi `run_frontiere.py` o `run_dwh_refresh.py`;
-3. verificare run e lock;
-4. conservare i log database e filesystem;
-5. esportare il flow se richiesto dalle procedure operative;
-6. eliminare manualmente il Process Group;
-7. ripristinare la precedente directory applicativa;
-8. ripristinare chiave e file cifrato soltanto da backup protetto;
-9. non cancellare automaticamente i record di audit;
-10. valutare separatamente il rollback del DDL `etl_dwh_refresh_run` solo se la tabella non contiene evidenze da conservare.
-
----
-
-## 22. Limiti e decisioni aperte
-
-- la schedulazione periodica non è ancora attivata;
+- il timer systemd è predisposto; l'abilitazione va verificata sul server target;
 - timeout e batch size definitivi richiedono test;
 - alerting su `FAILED`, `SKIPPED` e warning zero righe è da definire;
 - la procedura DWH è considerata autonoma nella gestione transazionale, come requisito fornito;
@@ -1014,34 +635,14 @@ Se il server viene riavviato durante un caricamento, verificare run `RUNNING`, l
 
 ---
 
-## 23. Checklist finale di deploy
+## 21. Checklist finale di deploy
 
-- [ ] precedente Process Group eliminato;
-- [ ] nessun processo Python attivo;
-- [ ] lock residui verificati;
-- [ ] tabella `etl_dwh_refresh_run` creata;
-- [ ] grant verificate;
-- [ ] file installati sotto `/opt/etl`;
-- [ ] virtual environment creato con Python 3.11;
-- [ ] dipendenze installate;
-- [ ] segreti cifrati validati;
-- [ ] connessioni HCBI e RASOP riuscite;
-- [ ] script compilati senza errori;
-- [ ] Process Group creato e fermo;
-- [ ] `original -> Terminate = true` su entrambi i processor;
-- [ ] DWH collegato soltanto a `matched` del gate UUID;
-- [ ] `unmatched` e `failure` del gate auto-terminate;
-- [ ] `Ignore STDIN = false` sul refresh DWH;
-- [ ] primo `Run Once` completato;
-- [ ] log frontiere verificato;
-- [ ] log DWH verificato;
-- [ ] UUID condiviso verificato;
-- [ ] assenza di lock residui verificata;
-- [ ] rollback documentato.
+La checklist completa per il sistemista è nel manuale canonico
+`doc/deploy/MANUALE_DEPLOY_NIFI.md`.
 
 ---
 
-## 24. Stato del progetto
+## 22. Stato del progetto
 
 ```text
 Versione documentata: v0.4

@@ -1,8 +1,12 @@
-# Manuale di Deploy — FRONTIERE METADATA RUNNER (NiFi)
+# Manuale di installazione — NiFi, FMR e scheduler DWH
 
-Documento operativo per il sistemista. Contiene tutti i passi, in ordine, per
-installare da zero NiFi e il progetto `frontiere-metadata-runner` su un nuovo
-server, collaudarlo e gestirlo in esercizio.
+Documento operativo per il sistemista. Contiene i passi per predisporre NiFi,
+il progetto `frontiere-metadata-runner` (FMR) e lo scheduler DWH, inclusi i file
+da consegnare e i percorsi di installazione sul server.
+
+Il database è fuori perimetro: deve essere ripristinato separatamente tramite
+dump approvato. Questa guida non crea, modifica o rimuove oggetti PostgreSQL e
+non applica DDL.
 
 Per il "perché" delle scelte progettuali (architettura, logging, lock,
 semantica transazionale) vedere `nifi/frontiere-metadata-runner/README.md`:
@@ -17,14 +21,14 @@ qui ci sono solo le azioni da eseguire.
 ## 0. Indice
 
 1. Ambiente di riferimento
-2. Prerequisiti
+2. Prerequisiti e pacchetto di installazione
 3. Checklist pre-deploy
 4. Installazione di NiFi
 5. Gestione del servizio NiFi (start/stop/status/log)
 6. Preparazione filesystem del progetto FMR
-7. Database: creazione oggetti
-8. Configurazione segreti (credenziali cifrate)
-9. Virtual environment Python
+7. Database: prerequisito di restore esterno
+8. Virtual environment Python
+9. Configurazione segreti (credenziali cifrate)
 10. Deploy del flusso NiFi (process group)
 11. Scheduler DWH: automatico e manuale
 12. Esecuzione FMR: UI oppure riga di comando
@@ -62,21 +66,26 @@ server differisce):
 
 > Nota: non esiste un ruolo Postgres dedicato "nifi": NiFi/il progetto FMR si
 > collegano al DB con le credenziali applicative (`hcbi`, e un utente dedicato
-> sul DB `RAS_Operazionales`) definite nel file segreti cifrato (§8), non con
+> sul DB `RAS_Operazionales`) definite nel file segreti cifrato (§9), non con
 > l'autenticazione NiFi stessa.
 
 ---
 
-## 2. Prerequisiti
+## 2. Prerequisiti e pacchetto di installazione
 
 Prima di iniziare, richiedere/preparare:
 
 - [ ] Accesso SSH al server target con utente sudo
+- [ ] Pacchetto NiFi 2.11.0 per Linux e runtime Java 21
+- [ ] Python 3.11 disponibile sul server
+- [ ] Utente e gruppo di servizio `nifi:nifi` presenti
+- [ ] Repository Python approvato raggiungibile per `cryptography` e
+      `psycopg[binary]`, oppure wheelhouse offline
 - [ ] Credenziali del DB `hcbi` (utente applicativo, es. `hcbi`) con accesso a
       `hcbi_ras` e `hcbi_utility`
-- [ ] DBA o referente DBA disponibile per applicare il DDL dello scheduler e
-      concedere i privilegi necessari (non si presume che l'utente applicativo
-      possa creare tabelle, funzioni e trigger)
+- [ ] Database `hcbi` e database sorgente RASOP già ripristinati e verificati
+      tramite il processo DBA/dump previsto; oggetti e privilegi applicativi
+      devono essere già disponibili
 - [ ] Frequenza, calendario e retry della schedulazione approvati prima
       dell'abilitazione del timer
 - [ ] Credenziali del DB `RAS_Operazionales` (utente di sola lettura sulle
@@ -84,10 +93,103 @@ Prima di iniziare, richiedere/preparare:
 - [ ] Username/password da assegnare all'utente single-user NiFi
 - [ ] Connettività di rete: server NiFi → host Postgres, porta 5432, su
       entrambi i database
-- [ ] Pacchetto del progetto FMR (checkout di questo repository o tarball
-      della cartella `nifi/frontiere-metadata-runner/`)
+- [ ] Pacchetto di progetto descritto al §2.1, estratto mantenendo i percorsi
+      relativi del repository
 - [ ] Conferma che la porta 8443 sia raggiungibile dalla postazione da cui si
       amministrerà la UI NiFi (o predisposizione tunnel SSH)
+
+### 2.1 File e archivi da consegnare
+
+Il pacchetto applicativo deve mantenere la struttura del repository: lo script
+`install_dwh_scheduler.sh` usa percorsi relativi tra le cartelle FMR e scheduler.
+Sono sufficienti un checkout approvato oppure l'archivio selettivo seguente; al
+momento il repository non contiene un archivio binario di rilascio già pronto.
+
+```text
+nifi/frontiere-metadata-runner/
+  FRONTIERE_METADATA_RUNNER.json       riferimento del flow (non installato)
+  README.md
+  requirements.txt
+  bin/{check_group_status.sh,install_layout.sh,nifi_service.sh,run_group_cycle.sh}
+  config/fmr-secrets.template.json
+  scripts/{check_group_status.py,deploy_nifi_flow.py,encrypt_fmr_secrets.py,
+           load_execution_logs.py,run_dwh_refresh.py,run_frontiere.py,
+           run_group_cycle.py,secrets_common.py,validate_fmr_secrets.py}
+  sql/{01_create_hcbi_utility_etl_dwh_refresh_run.sql,02_verify_runtime.sql,
+       03_verify_log_ingestion.sql}
+  tests/test_load_execution_logs.py     solo test, non necessario a runtime
+
+nifi/Schedulazione_Caricamenti/deploy/
+  unix-linux/{dwh-scheduler.env.example,dwh-scheduler.logrotate,
+              dwh-scheduler.service,dwh-scheduler.timer,dwh_schedule_runner.py,
+              install_dwh_scheduler.sh,launch_manual_dwh_run.sh,
+              test_dwh_schedule_runner.py}
+  nifi/deploy_manual_launcher.py
+
+doc/deploy/MANUALE_DEPLOY_NIFI.md
+```
+
+Gli script SQL inclusi nella cartella FMR sono file versionati e copiati
+dall'installer; non vanno eseguiti durante questa installazione. Il dump del
+database è gestito separatamente. La cartella `deploy/postgresql/` non è
+necessaria sul server applicativo.
+
+L'archivio binario ufficiale Apache NiFi (`nifi-2.11.0-bin.zip`) è un artefatto
+esterno al repository e va consegnato separatamente. Non includere nel pacchetto
+la virtualenv `.venv`, file di credenziali, chiavi, configurazioni locali o dump.
+Le credenziali vengono create sul server seguendo il §9.
+
+Per generare l'archivio applicativo da un tag o commit approvato, dalla root di
+un checkout Git:
+
+```bash
+git archive --format=tar.gz --prefix=RAS_Prezziario/ \
+  --output=RAS_Prezziario-deploy.tar.gz TAG_O_COMMIT_APPROVATO \
+  nifi/frontiere-metadata-runner \
+  nifi/Schedulazione_Caricamenti/deploy/unix-linux \
+  nifi/Schedulazione_Caricamenti/deploy/nifi \
+  doc/deploy/MANUALE_DEPLOY_NIFI.md
+```
+Comando equivalente su unix  da eseguire
+nella directory che contiene RAS_Prezziario:
+
+```bash
+cd /tmp/ISTALLAZIONE_FMR
+tar -czf RAS_Prezziario-deploy.tar.gz \
+RAS_Prezziario/nifi/frontiere-metadata-runner \
+RAS_Prezziario/nifi/Schedulazione_Caricamenti/deploy/unix-linux \
+RAS_Prezziario/nifi/Schedulazione_Caricamenti/deploy/nifi \
+RAS_Prezziario/doc/deploy/MANUALE_DEPLOY_NIFI.md
+```
+
+Trasferire l'archivio e il pacchetto NiFi al server con il canale aziendale
+previsto. Estrarre l'archivio in una directory temporanea, per esempio
+`/opt/etl/deploy-src`, mantenendo la radice `RAS_Prezziario/`; eseguire gli
+installer da lì. Non estrarre il pacchetto direttamente sopra
+`/opt/etl/frontiere-metadata-runner`: `install_layout.sh` gestisce la copia e i
+permessi di destinazione.
+Per l'estrazione sul server, mantenere la struttura del pacchetto:
+
+```bash
+install -d -m 0750 /opt/etl/deploy-src
+tar -xzf /percorso/RAS_Prezziario-deploy.tar.gz -C /opt/etl/deploy-src
+```
+
+### 2.2 Destinazioni sul server
+
+| Sorgente / contenuto | Destinazione | Note |
+|---|---|---|
+| Distribuzione Apache `nifi-2.11.0-bin.zip` | `/opt/nifi-2.11.0` | Estratta e assegnata a `nifi:nifi` |
+| `nifi/frontiere-metadata-runner/{bin,scripts,sql,config,requirements.txt,README.md}` | `/opt/etl/frontiere-metadata-runner/` | Copia tramite `bin/install_layout.sh` |
+| Virtualenv Python creata sul server | `/opt/etl/frontiere-metadata-runner/.venv` | Non trasferire da un altro host |
+| Credenziali cifrate e chiave | `/opt/etl/config/fmr-secrets.json.enc`, `/opt/etl/secrets/fmr-secrets.key` | Creare sul server; mai inserire nell'archivio |
+| Log FMR | `/opt/etl/log/frontiere-metadata-runner/` | Creata dall'installer FMR |
+| Runner e launcher scheduler | `/opt/etl/frontiere-metadata-runner/scripts/` e `bin/` | Copiati dall'installer scheduler |
+| Configurazione scheduler | `/etc/sysconfig/dwh-scheduler` | Creata solo se assente; preservare e revisionare se già esiste |
+| Unit e timer systemd | `/etc/systemd/system/dwh-scheduler.service`, `/etc/systemd/system/dwh-scheduler.timer` | Timer lasciato disabilitato |
+| Configurazione logrotate | `/etc/logrotate.d/dwh-scheduler` | Copiata dall'installer scheduler |
+| Log scheduler | `/opt/etl/log/dwh-scheduler/` | Creata dall'installer scheduler |
+| Unit `nifi.service` | `/etc/systemd/system/nifi.service` | Da predisporre secondo lo standard sistemistico locale |
 
 ---
 
@@ -97,10 +199,10 @@ Prima di iniziare, richiedere/preparare:
 - [ ] NiFi 2.11 installato e avviato come servizio systemd
 - [ ] UI NiFi raggiungibile via HTTPS
 - [ ] Postgres 17 raggiungibile da questo host sulle due basi dati
-- [ ] Oggetti FMR e scheduler DB creati/verificati (§7)
-- [ ] Configurazione scheduler verificata; al massimo una riga abilitata (§7)
-- [ ] File segreti cifrato generato, validato, e permessi ristretti (§8)
-- [ ] Virtual environment Python creato con dipendenze installate (§9)
+- [ ] Dump DB ripristinato separatamente; oggetti e privilegi richiesti verificati dal DBA
+- [ ] Configurazione scheduler DB già presente e verificata secondo la procedura applicativa
+- [ ] Virtual environment Python creato con dipendenze installate (§8)
+- [ ] File segreti cifrato generato, validato, e permessi ristretti (§9)
 - [ ] Process group FMR deployato e verificato nella UI (§10)
 - [ ] Launcher `DWH_MANUAL_LAUNCH` installato (§11)
 - [ ] Timer attivato solo dopo approvazione operativa (§11)
@@ -117,11 +219,9 @@ Se NiFi non è già installato sul server:
 # dnf install -y java-21-openjdk-headless
 # alternatives --config java   # selezionare Java 21
 
-# 2. Download ed estrazione NiFi 2.11.0 sotto /opt
+# 2. Estrarre sotto /opt l'archivio NiFi 2.11.0 consegnato separatamente
 # cd /opt
-# wget https://downloads.apache.org/nifi/2.11.0/nifi-2.11.0-bin.zip
-# unzip nifi-2.11.0-bin.zip
-# mv nifi-2.11.0 nifi-2.11.0
+# unzip /percorso/consegnato/nifi-2.11.0-bin.zip
 # chown -R nifi:nifi /opt/nifi-2.11.0
 
 # 3. Configurare l'esposizione HTTP(S)
@@ -199,6 +299,7 @@ Lo script crea (utente/gruppo `nifi`, override con `FMR_SERVICE_USER`/
 ├── secrets/                            (0700 nifi:nifi)
 └── frontiere-metadata-runner/
     ├── scripts/   (0750 directory, 0750 i .py)
+    ├── bin/       (0750 directory, gli script `.sh` sono 0750)
     ├── sql/
     ├── config/
     ├── requirements.txt
@@ -224,104 +325,58 @@ $ sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/.venv/bin/python
 $ sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/bin/launch_manual_dwh_run.sh
 $ sudo -u nifi test -r /opt/etl/frontiere-metadata-runner/scripts/dwh_schedule_runner.py
 $ sudo -u nifi test -r /opt/etl/frontiere-metadata-runner/scripts/load_execution_logs.py
-$ sudo -u nifi test -r /opt/etl/log/dwh-scheduler/dwh-scheduler.log
-$ sudo -u nifi test -r /opt/etl/log/frontiere-metadata-runner/dwh-refresh.log
-$ sudo -u nifi test -r /opt/etl/log/frontiere-metadata-runner/frontiere-metadata-runner.log
 $ sudo -u nifi test -w /opt/etl/log/dwh-scheduler
+$ sudo -u nifi test -w /opt/etl/log/frontiere-metadata-runner
 ```
 
+I file di log vengono creati al primo ciclo; se l'ingestione è abilitata, dopo
+il primo run verificare che `nifi` possa leggerli.
 I test di accesso devono terminare con codice `0`; non è necessario concedere
 l'esecuzione a tutti gli utenti.
 
 ---
 
-## 7. Database: creazione oggetti
+## 7. Database: prerequisito di restore esterno
 
-Gli oggetti applicativi di tracciamento sono **già presenti** nello schema
-`hcbi_utility` sull'ambiente corrente (verificato live su Postgres 17.0 il
-2026-10-22): `etl_frontiere_config`, `etl_frontiere_run`,
-`etl_frontiere_execution_lock`, `etl_dwh_refresh_run`. Le relative DDL
-(allineate al DB) sono mantenute in `ddl/hcbi_utility/table/` in questo
-repository, a scopo di riferimento/versionamento.
+Il database non viene installato né modificato da questa procedura. Prima del
+deploy, il DBA deve aver ripristinato il dump approvato per `hcbi` e per il DB
+sorgente RASOP, inclusi schemi, tabelle, procedure, configurazione, audit e
+privilegi necessari a FMR e allo scheduler. La schedulazione applicativa e le
+frontiere devono essere state predisposte e validate secondo la procedura DB
+separata dell'organizzazione.
 
-Per un **nuovo** ambiente, creare gli oggetti nell'ordine seguente (assumendo
-che `hcbi_ras`/`hcbi_utility` e i ruoli omonimi esistano già):
-
-```bash
-$ psql "host=<DB_HOST> port=5432 dbname=hcbi user=hcbi" \
-    -f ddl/hcbi_utility/table/etl_frontiere_config.sql
-$ psql "host=<DB_HOST> port=5432 dbname=hcbi user=hcbi" \
-    -f ddl/hcbi_utility/table/etl_frontiere_run.sql
-$ psql "host=<DB_HOST> port=5432 dbname=hcbi user=hcbi" \
-    -f ddl/hcbi_utility/table/etl_frontiere_execution_lock.sql
-$ psql "host=<DB_HOST> port=5432 dbname=hcbi user=hcbi" \
-    -f nifi/frontiere-metadata-runner/sql/01_create_hcbi_utility_etl_dwh_refresh_run.sql
-```
-
-Lo script `01_create_hcbi_utility_etl_dwh_refresh_run.sql` include anche le
-`GRANT` necessarie (`SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES,
-TRIGGER` sulla tabella, più i default privileges) per i ruoli `hcbi_utility` e
-`hcbi_ras`.
-
-Verifica runtime (presenza oggetti, grant, lock residui):
-
-```bash
-$ psql "host=<DB_HOST> port=5432 dbname=hcbi user=hcbi" \
-    -f nifi/frontiere-metadata-runner/sql/02_verify_runtime.sql
-```
-
-Per lo scheduler DWH servono inoltre `hcbi_utility.dwh_schedule` e
-`hcbi_utility.dwh_schedule_run`. In un nuovo ambiente applicare e verificare:
-
-```bash
-$ psql -v ON_ERROR_STOP=1 -d hcbi \
-    -f nifi/Schedulazione_Caricamenti/deploy/postgresql/01_create_dwh_schedule.sql
-$ psql -v ON_ERROR_STOP=1 -d hcbi \
-    -f nifi/Schedulazione_Caricamenti/deploy/postgresql/02_verify_dwh_schedule.sql
-```
-
-Se si migra una precedente installazione con audit manuale non aggiornato,
-applicare anche `03_add_manual_trigger_audit.sql` e poi ripetere la verifica,
-come descritto in
-`nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md`.
-Inserire la schedulazione approvata usando gli esempi in
-`nifi/Schedulazione_Caricamenti/doc/03_esempi_schedulazioni_dwh.md`; iniziare con
-`enabled=false` e abilitarla solo dopo aver verificato i parametri. Verificare che
-ci sia una sola riga abilitata e che calendario, giorno settimanale e retry siano
-quelli approvati. Il DDL non inserisce una schedulazione iniziale.
-
-L'ingestione dei log è un'estensione opzionale del runner scheduler. Per un
-nuovo ambiente, dopo aver verificato che il login HCBI erediti i privilegi del
-ruolo `hcbi_ras`, applicare in ordine i due DDL (richiedono un ruolo DBA in grado
-di assegnare owner e grant):
-
-```bash
-$ psql -v ON_ERROR_STOP=1 -d hcbi \
-    -f ddl/hcbi_utility/table/etl_execution_log_ingestion.sql
-$ psql -v ON_ERROR_STOP=1 -d hcbi \
-    -f ddl/hcbi_utility/table/etl_execution_log_event.sql
-$ psql -v ON_ERROR_STOP=1 -d hcbi \
-    -f nifi/frontiere-metadata-runner/sql/03_verify_log_ingestion.sql
-```
-
-Il primo DDL crea l'audit; il secondo gli eventi. Non abilitare l'opzione se
-mancano le tabelle o i grant. Gli script SQL sono soltanto preparati nel
-repository: non vengono applicati automaticamente dall'installer.
-
-Popolare/validare `hcbi_utility.etl_frontiere_config` con le frontiere da
-attivare (`enabled=true`, `execution_order`, query sorgente) secondo le
-esigenze del nuovo ambiente — vedere la vista di supporto
-`ddl/hcbi_utility/view/vw_etl_frontiere_config.sql`.
+Questa guida non contiene procedure di installazione o modifica SQL/DDL; le
+eventuali query `SELECT` nei collaudi servono solo a consultare i risultati.
+Gli installer applicativi non eseguono script della cartella `sql/`. Il comando
+di validazione credenziali del
+§9 verifica soltanto che i login possano raggiungere i database; non crea o
+convalida lo schema applicativo. In caso di oggetti o privilegi mancanti,
+sospendere il deploy e coinvolgere il DBA.
 
 ---
 
-## 8. Configurazione segreti (credenziali cifrate)
+## 8. Virtual environment Python
+
+La virtualenv precede la configurazione dei segreti perché gli script di
+cifratura e validazione usano l'interprete Python installato in `.venv`.
+
+```bash
+$ cd /opt/etl/frontiere-metadata-runner
+$ python3.11 -m venv .venv
+$ .venv/bin/pip install --upgrade pip
+$ .venv/bin/pip install -r requirements.txt
+$ .venv/bin/python -c "import psycopg, cryptography; print('OK')"
+```
+
+---
+
+## 9. Configurazione segreti (credenziali cifrate)
 
 Il progetto non legge mai credenziali in chiaro da variabili d'ambiente: usa
 un file JSON cifrato con Fernet (`config/fmr-secrets.json.enc` + chiave
 `secrets/fmr-secrets.key`).
 
-### 8.1 Creare il file in chiaro temporaneo
+### 9.1 Creare il file in chiaro temporaneo
 
 ```bash
 $ cp nifi/frontiere-metadata-runner/config/fmr-secrets.template.json /tmp/fmr-secrets.json
@@ -351,7 +406,7 @@ Compilare (vedi struttura attesa in `scripts/secrets_common.py::REQUIRED`):
 }
 ```
 
-### 8.2 Cifratura
+### 9.2 Cifratura
 
 ```bash
 $ cd /opt/etl/frontiere-metadata-runner
@@ -364,7 +419,7 @@ $ chmod 0600 /opt/etl/secrets/fmr-secrets.key /opt/etl/config/fmr-secrets.json.e
 $ chown nifi:nifi /opt/etl/secrets/fmr-secrets.key /opt/etl/config/fmr-secrets.json.enc
 ```
 
-### 8.3 Validazione
+### 9.3 Validazione
 
 ```bash
 $ .venv/bin/python scripts/validate_fmr_secrets.py \
@@ -375,22 +430,10 @@ $ .venv/bin/python scripts/validate_fmr_secrets.py \
 Deve confermare: struttura valida, nessun placeholder residuo
 (`CHANGE_ME`/`_HOST`), connessione Postgres reale riuscita su entrambi i DB.
 
-### 8.4 Rotazione password
+### 9.4 Rotazione password
 
-Ripetere 8.1–8.3 con i nuovi valori; non serve ridistribuire il process group
+Ripetere 9.1–9.3 con i nuovi valori; non serve ridistribuire il process group
 NiFi (le credenziali sono lette ad ogni esecuzione degli script).
-
----
-
-## 9. Virtual environment Python
-
-```bash
-$ cd /opt/etl/frontiere-metadata-runner
-$ python3.11 -m venv .venv
-$ .venv/bin/pip install --upgrade pip
-$ .venv/bin/pip install -r requirements.txt
-$ .venv/bin/python -c "import psycopg, cryptography; print('OK')"
-```
 
 ---
 
@@ -462,9 +505,9 @@ credenziali). L'installer la crea solo se assente, installa runner, loader dei l
 launcher, unità service/timer e configurazione logrotate, e lascia il timer
 disattivato. Il loader viene copiato in
 `scripts/load_execution_logs.py`; `FMR_LOG_INGESTION_ENABLED` resta `false` per
-default e il file sysconfig esistente viene preservato. Prima di abilitarla,
-applicare e verificare i DDL del §7 e controllare che `nifi` possa leggere i tre
-log. Verificare anche unità e permessi:
+default e il file sysconfig esistente viene preservato. Abilitare l'ingestione
+solo dopo conferma del DBA che il dump include gli oggetti e i privilegi richiesti;
+verificare la leggibilità dei log dopo il primo ciclo. Verificare unità e permessi:
 
 ```bash
 # systemd-analyze verify /etc/systemd/system/dwh-scheduler.service \
@@ -473,6 +516,7 @@ $ sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/.venv/bin/python
 $ sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/bin/launch_manual_dwh_run.sh
 $ sudo -u nifi test -r /opt/etl/frontiere-metadata-runner/scripts/dwh_schedule_runner.py
 $ sudo -u nifi test -w /opt/etl/log/dwh-scheduler
+$ sudo -u nifi test -w /opt/etl/log/frontiere-metadata-runner
 ```
 
 I test di accesso devono terminare con codice `0`. Il `.py` passato all'interprete
@@ -572,8 +616,7 @@ Il retry è limitato al file/offset registrato e richiede che device/inode siano
 ancora disponibili. Per disabilitare la funzione impostare di nuovo
 `FMR_LOG_INGESTION_ENABLED=false`; non eliminare le tabelle o lo storico.
 
-Per il deploy dettagliato, consultare
-`nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md`.
+Questa guida è il riferimento operativo unico per installazione e gestione dello scheduler (§11 e §16).
 
 ---
 
@@ -667,7 +710,7 @@ scheduler (§11) e non avviare il timer come semplice test.
    - log filesystem in `/opt/etl/log/frontiere-metadata-runner/*.log` coerenti
 4. Fermare il gruppo: `bin/check_group_status.sh` seguito da Stop via UI,
    oppure rilanciare `run_group_cycle.sh` senza `--no-stop`
-5. Eseguire i test minimi T01–T10 descritti in README §19 se si vuole una
+5. Eseguire i test minimi T01–T10 descritti in README §17 se si vuole una
    copertura completa (zero righe, errore sorgente, lock, concorrenza, ecc.)
 
 ---
@@ -686,7 +729,7 @@ scheduler (§11) e non avviare il timer come semplice test.
 | `run_group_cycle.py` termina con exit code 5 (timeout) | Query sorgente lenta, DB irraggiungibile, o timeout troppo basso | Alzare `--frontiere-timeout`/`--dwh-timeout`; controllare log `/opt/etl/log/frontiere-metadata-runner/` |
 | Join/query rotte dopo una modifica di schema (es. rename colonna) | Una tabella a monte è stata modificata (es. `addendum`→`cd_versione`) senza propagare la modifica ai flussi a valle | Verificare tutti gli script in `doc/flussi/` che referenziano la tabella modificata |
 | Browser mostra "Invalid SNI" o certificato non valido su `https://<NIFI_HOST>:8443` | Self-signed cert / hostname diverso da quello configurato | Accettare l'eccezione per test, oppure installare certificato valido con il hostname corretto; in alternativa tunnel SSH su `localhost` |
-| `validate_fmr_secrets.py` segnala placeholder non sostituito | File JSON compilato parzialmente (valori `CHANGE_ME` o contenenti `_HOST`) | Ricompilare il file in chiaro, rifare §8.1–8.3 |
+| `validate_fmr_secrets.py` segnala placeholder non sostituito | File JSON compilato parzialmente (valori `CHANGE_ME` o contenenti `_HOST`) | Ricompilare il file in chiaro, rifare §9.1–9.3 |
 | Il ciclo sembra ripartire da solo il giorno dopo | `Manual trigger` lasciato `Running` (timer 1 day) | Fermarlo esplicitamente dopo ogni test diretto (§12.1) |
 
 ---
@@ -702,11 +745,8 @@ scheduler (§11) e non avviare il timer come semplice test.
 4. Rimuovere la cartella applicativa: `rm -rf /opt/etl/frontiere-metadata-runner`
    (conservare `/opt/etl/secrets` e `/opt/etl/config` se si prevede un nuovo
    deploy con le stesse credenziali)
-5. Gli oggetti DB (`etl_frontiere_*`, `etl_dwh_refresh_run`, `dwh_schedule`,
-   `dwh_schedule_run`) **non** vengono
-   rimossi automaticamente: eliminarli solo se richiesto esplicitamente,
-   previo backup/estrazione dello storico (contengono l'audit trail delle
-   esecuzioni)
+5. Il database e il suo rollback sono fuori perimetro: non modificare né rimuovere
+   oggetti DB durante questa procedura; coinvolgere il DBA per interventi separati.
 6. Per disinstallare anche NiFi: `systemctl disable --now nifi.service`,
    rimuovere `/opt/nifi-2.11.0` e l'unit file systemd
 
@@ -718,13 +758,9 @@ scheduler (§11) e non avviare il timer come semplice test.
   permessi, semantica transazionale, logging, lock e test di accettazione
 - `doc/design/LOG_INGESTION_HIGH_LEVEL_DESIGN.md` e
   `doc/operations/RUNBOOK_LOG_INGESTION_NIFI.md` — design e runbook del riversamento log
-- `nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md` — DDL,
-  installazione, attivazione, monitoraggio e rollback del timer DWH
 - `nifi/Schedulazione_Caricamenti/doc/01_progettazione_scheduler_dwh.md` —
   progettazione e regole di schedulazione
 - `nifi/frontiere-metadata-runner/scripts/` — tutti gli script Python citati
   in questo manuale
-- `ddl/hcbi_utility/table/` — DDL correnti (allineate al DB) degli oggetti di
-  tracciamento
 - `config/nifi_server.md` — dati di connessione alla UI NiFi dell'ambiente
   corrente

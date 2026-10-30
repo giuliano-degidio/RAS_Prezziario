@@ -349,10 +349,9 @@ Il DDL e la verifica PostgreSQL sono in
 `nifi/Schedulazione_Caricamenti/deploy/postgresql/`; runner, timer, service e
 installer sono in `nifi/Schedulazione_Caricamenti/deploy/unix-linux/`, mentre
 l'helper di deploy del launcher UI è in `nifi/Schedulazione_Caricamenti/deploy/nifi/`.
-La procedura dettagliata di DDL, deploy, permessi, attivazione, monitoraggio e
-rollback è in
-`nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md`; le regole
-di calendario e i casi d'esempio sono in
+Per l'installazione del sistema consultare il manuale sistemista
+`doc/deploy/MANUALE_DEPLOY_NIFI.md`. Le regole di calendario e i casi d'esempio
+sono in
 `nifi/Schedulazione_Caricamenti/doc/01_progettazione_scheduler_dwh.md` e
 `nifi/Schedulazione_Caricamenti/doc/03_esempi_schedulazioni_dwh.md`.
 
@@ -442,9 +441,7 @@ Per installazione, gate, launcher, permessi, monitoraggio e rollback consultare:
 
 - `nifi/frontiere-metadata-runner/README.md` — architettura, gate UUID, logging,
   lock, concorrenza e test di accettazione
-- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di deploy NiFi e scheduler DWH
-- `nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md` —
-  procedura operativa completa dello scheduler
+- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di installazione sistemista NiFi, FMR e scheduler DWH
 
 ---
 
@@ -512,13 +509,11 @@ Convenzioni repository:
 - `README.md` (root repository) — architettura sintetica e layer
 - `nifi/frontiere-metadata-runner/README.md` — dettaglio completo
   dell'orchestrazione NiFi
-- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di deploy NiFi e scheduler
+- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di installazione sistemista NiFi, FMR e scheduler
 - `doc/design/LOG_INGESTION_HIGH_LEVEL_DESIGN.md` e
   `doc/operations/RUNBOOK_LOG_INGESTION_NIFI.md` — design e runbook del riversamento log
 - `nifi/Schedulazione_Caricamenti/doc/01_progettazione_scheduler_dwh.md` —
   modello dati, calendario e semantica dei run automatici/manuali
-- `nifi/Schedulazione_Caricamenti/doc/02_manual_deploy_scheduler_dwh.md` —
-  deploy Linux/NiFi, attivazione e diagnosi
 - `nifi/Schedulazione_Caricamenti/doc/03_esempi_schedulazioni_dwh.md` — esempi
   di configurazione delle frequenze
 - `ddl/hcbi_ras/procedure/pkg_stg_anag_utenti_prc_main.sql` — esempio

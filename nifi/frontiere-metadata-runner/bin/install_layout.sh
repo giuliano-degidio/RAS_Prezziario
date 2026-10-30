@@ -10,4 +10,5 @@ chown -R "$USER:$GROUP" "$PROJECT"
 find "$PROJECT" -type d -exec chmod 0750 {} \;
 find "$PROJECT" -type f -exec chmod 0640 {} \;
 chmod 0750 "$PROJECT/scripts/"*.py
+chmod 0750 "$PROJECT/bin/"*.sh
 echo "[OK] File installati in $PROJECT"
