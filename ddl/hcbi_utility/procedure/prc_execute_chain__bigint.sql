@@ -1,8 +1,13 @@
-CREATE OR REPLACE PROCEDURE hcbi_utility.prc_execute_chain(IN p_id_chain bigint)
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'pg_catalog', 'hcbi_utility'
-AS $procedure$
+-- PROCEDURE: hcbi_utility.prc_execute_chain(bigint)
+
+-- DROP PROCEDURE IF EXISTS hcbi_utility.prc_execute_chain(bigint);
+
+CREATE OR REPLACE PROCEDURE hcbi_utility.prc_execute_chain(
+	IN p_id_chain bigint)
+LANGUAGE 'plpgsql'
+    SECURITY DEFINER 
+    SET search_path=pg_catalog, hcbi_utility
+AS $BODY$
 
 DECLARE
     r_step                       record;
@@ -100,7 +105,23 @@ BEGIN
     -- al rollback principale, la riconciliazione evita che un vecchio log
     -- blocchi per sempre le esecuzioni successive.
     ----------------------------------------------------------------------
-    PERFORM hcbi_utility.ensure_dblink_logging();
+  
+		BEGIN
+		    PERFORM hcbi_utility.ensure_dblink_logging();
+		
+		EXCEPTION
+		    WHEN OTHERS THEN
+			v_blocking_error := true;
+		        RAISE WARNING
+		            'Errore inizializzazione LOG_DBLINK: SQLSTATE=% | SQLERRM=%',
+		            SQLSTATE,
+		            SQLERRM;
+
+		        -- Rilancia l'eccezione originale
+		        --RAISE ;
+		END;
+
+
 
     v_sql := format(
         $sql$
@@ -638,7 +659,7 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
                 IF COALESCE(r_step.fl_blocking, 'Y') = 'Y' THEN
                     v_blocking_error := true;
 
-                    RAISE WARNING
+                    RAISE 
                         'Interruzione della catena %: errore bloccante nello step %, procedura %',
                         p_id_chain,
                         r_step.id_step,
@@ -683,7 +704,7 @@ SET LOCAL maintenance_work_mem ='4GB';-- '256MB';
             )
         );
 
-        RAISE WARNING
+        RAISE 
             'Catena % terminata con stato FAILED, id_log=%',
             p_id_chain,
             v_id_log;
@@ -775,15 +796,18 @@ EXCEPTION
             END;
         END IF;
 
-        RAISE WARNING '%', v_error_message;
+        RAISE  '%', v_error_message;
 
-        ------------------------------------------------------------------
-        -- Non viene eseguito RAISE senza argomenti: si conserva il
-        -- comportamento corrente della procedura, che segnala l'esito
-        -- negativo tramite log e WARNING senza rilanciare l'eccezione.
-        -- Il log, essendo scritto via LOG_DBLINK, resta indipendente
-        -- dall'esito della transazione principale.
-        ------------------------------------------------------------------
+
         RETURN;
 END;
-$procedure$
+$BODY$;
+ALTER PROCEDURE hcbi_utility.prc_execute_chain(bigint)
+    OWNER TO hcbi_utility;
+
+GRANT EXECUTE ON PROCEDURE hcbi_utility.prc_execute_chain(bigint) TO PUBLIC;
+
+GRANT EXECUTE ON PROCEDURE hcbi_utility.prc_execute_chain(bigint) TO hcbi_ras;
+
+GRANT EXECUTE ON PROCEDURE hcbi_utility.prc_execute_chain(bigint) TO hcbi_utility;
+
