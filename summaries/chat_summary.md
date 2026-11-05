@@ -148,21 +148,75 @@
     group da riga di comando, attende il completamento leggendo le tabelle
     `hcbi_utility.etl_frontiere_run` / `etl_dwh_refresh_run`, poi ferma il
     gruppo automaticamente (con exit code distinti per i vari esiti/timeout).
+    Il runner è stato poi irrobustito con heartbeat periodico e connessioni DB
+    brevi per ridurre i falsi hang.
   - `scripts/check_group_status.py` + `bin/check_group_status.sh`: stato del
     process group/processor (thread attivi, code, bulletin) via REST API.
   - `bin/nifi_service.sh`: wrapper `systemctl`/`journalctl` per gestire il
     servizio `nifi.service` (start/stop/restart/status/logs).
-- Creato il manuale operativo `doc/deploy/MANUALE_DEPLOY_NIFI.md`, pensato per
-  il sistemista: installazione NiFi, gestione servizio, setup filesystem/DB/
-  segreti/venv, deploy del process group, esecuzione da UI e da CLI,
-  monitoraggio, collaudo, troubleshooting e rollback. Verificato a DB live
-  (PostgreSQL 17.0) che gli oggetti di tracciamento in `hcbi_utility`
-  (`etl_frontiere_config`, `etl_frontiere_run`, `etl_frontiere_execution_lock`,
-  `etl_dwh_refresh_run`) sono allineati alle DDL già presenti in
-  `ddl/hcbi_utility/table/`.
+- Consolidato il manuale sistemista `doc/deploy/MANUALE_DEPLOY_NIFI.md` con
+  inventario dei file da consegnare, archivi, destinazioni server e sequenza
+  di installazione NiFi/FMR/scheduler. Il database è esplicitamente fuori
+  perimetro e deve essere ripristinato separatamente tramite dump.
+- Rimossi i passi di installazione duplicati dal README tecnico e il manuale
+  scheduler ridondante; aggiornati i riferimenti nei documenti operativi.
+- Corretto `bin/install_layout.sh` per assegnare permessi 0750 agli script
+  shell. Riordinati i passi: virtualenv Python prima della cifratura segreti.
 - Rilevata una cartella `appo-nifi/frontiere-metadata-runner` nel repo
   (committata il 16/10), parzialmente divergente da
   `nifi/frontiere-metadata-runner` (README diverso, script CLI mancanti):
   probabile copia di staging residua, da valutare se rimuovere.
+
+## 14) Manuale installazione e DDL recenti
+
+- Commit `9c54a36`: manuale installazione consolidato, manuale scheduler duplicato
+  rimosso e permessi degli script shell corretti; virtualenv Python anteposta
+  alla configurazione dei segreti.
+- Commit `c337c9c`: prima pubblicazione della DDL `dim_regione`.
+- Commit `5e2b53b`: rinomina in `ddl/hcbi_ras/table/dim_regione.sql` e aggiunta
+  di `ddl/hcbi_ras/table/fe_ai_output_match.sql`.
+- La successiva richiesta di riallineare `fe_ai_output_match.sql` non richiedeva
+  un nuovo commit: il file era già presente su GitHub.
+- Le DDL sono state versionate nel repository; non sono state applicate al DB.
+
+## 15) Altri sviluppi storici verificati nella cronologia Git
+
+- Prima del runner FMR è stato creato un flow NiFi dimostrativo per `area_vasta`;
+  il relativo deploy è stato poi corretto per compatibilità Python, autenticazione
+  token, driver JDBC, gestione degli errori, retry di `PutSQL` e associazione dei
+  Controller Service; è stata aggiunta anche una nota di connessione al server
+  NiFi. Il POC è stato successivamente sostituito dal progetto FMR.
+- Per il progetto FMR sono stati aggiunti inventario/classificazione delle tabelle
+  HCBI e ordine di purge basato sulle FK. Sono stati versionati script SQL per
+  pulizia per livelli, fatti, dimensioni, log e reset delle sequence, oltre a
+  generatori/commenti per i comandi `TRUNCATE` e `DELETE`; gli script correnti
+  sono in `pulizia_tabelle/`.
+- Allineate le DDL di supporto ETL in `hcbi_utility`: tabelle di configurazione,
+  run e lock, log di catena, vista `vw_etl_frontiere_config` e funzione che
+  recupera l'UUID dell'esecuzione corrente. Le procedure di avvio/esecuzione
+  catena sono state aggiornate per tracciare l'UUID, gestire il logging loopback
+  degli errori e mantenere lo stato `RUNNING` coerente; le definizioni precedenti
+  sono archiviate sotto `ddl/hcbi_utility/svil/`.
+- È stato aggiunto il catalogo dei flussi SQL in `doc/flussi/`; oltre alla
+  migrazione descritta nella sezione 12, sono state aggiunte versioni successive
+  per dimensioni e fatti, inclusi pubblicazione, prezzi e informatori. Sono stati
+  introdotti gli oggetti DWH per la fascia prezzo e la tabella `fct_output_match`,
+  e ottimizzati i flussi di pubblicazione (normalizzazione del codice articolo,
+  lookup dell'albero, analisi, monitoraggio del ciclo e normalizzazione della
+  vista temporanea del tipo utente).
+- È stato implementato lo scheduler DWH con runner Python, timer e service
+  systemd, installazione/verifica, avvio manuale NiFi e audit del trigger
+  manuale. Un gate impedisce il refresh DWH prima del completamento riuscito
+  del caricamento frontiere; requisiti, progettazione e manualistica sono stati
+  aggiornati. Il manuale operativo per lo sviluppo dei moduli è stato creato e
+  successivamente ampliato per scheduler e ingestion dei log.
+- È stata progettata e aggiunta l'ingestione a PostgreSQL dei log di esecuzione:
+  DDL per eventi e stato ingestion, loader e test, query di verifica, specifica
+  di progettazione e roadmap. Il flag `FMR_LOG_INGESTION_ENABLED` controlla
+  l'attivazione; runbook e manuali di deploy/sviluppo descrivono configurazione
+  e operatività.
+- La specifica DWH FLOWFORGE è stata rivista dopo la prima pubblicazione. Nella
+  cronologia compaiono anche commit di merge e file temporanei di prova poi
+  rimossi; non rappresentano ulteriori funzionalità mantenute nel progetto.
 
 Fine riepilogo.

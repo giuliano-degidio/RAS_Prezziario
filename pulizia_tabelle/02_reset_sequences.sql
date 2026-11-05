@@ -26,12 +26,16 @@ SELECT setval('hcbi_ras.seq_dwh_pubblicazione_analisi', 1, false);
 SELECT setval('hcbi_ras.seq_dwh_pubblicazione_articoli', 1, false);
 
 --hcbi_utility
+
+SELECT setval('hcbi_utility.dwh_schedule_schedule_id_seq', 1, false);
+SELECT setval('hcbi_utility.etl_execution_log_event_event_id_seq', 1, false);
+SELECT setval('hcbi_utility.etl_execution_log_ingestion_ingestion_id_seq', 1, false);
 SELECT setval('hcbi_utility.etl_dwh_refresh_run_run_id_seq', 1, false);
 SELECT setval('hcbi_utility.etl_frontiere_run_run_id_seq', 1, false);
 SELECT setval('hcbi_utility.seq_log_chain', 1, false);
 SELECT setval('hcbi_utility.seq_log_step', 1, false);
-SELECT setval('hcbi_utility.seq_srv_config_step', 1, false);
-SELECT setval('hcbi_utility.seq_srv_metadata_copy_src', 1, false);
-SELECT setval('hcbi_utility.seq_srv_svecchiamento_fct', 1, false);
+--SELECT setval('hcbi_utility.seq_srv_config_step', 1, false);
+--SELECT setval('hcbi_utility.seq_srv_metadata_copy_src', 1, false);
+--SELECT setval('hcbi_utility.seq_srv_svecchiamento_fct', 1, false);
 
 

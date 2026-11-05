@@ -187,16 +187,19 @@ def poll_frontiere(hcbi_conninfo, cycle_start, dwh_log, poll_interval, quiet_sec
             )
             return rows
         if rows:
-            running = [r for r in rows if r[1] == "RUNNING"]
-            if not running:
-                if len(rows) != last_seen_count:
-                    quiet_since = time.monotonic()
-                    last_seen_count = len(rows)
-                elif quiet_since is not None and (time.monotonic() - quiet_since) >= quiet_seconds:
-                    return rows
-            else:
-                quiet_since = None
-                last_seen_count = len(rows)
+             running = [r for r in rows if r[1] == "RUNNING"]
+             if not running:
+                 if len(rows) != last_seen_count:
+                     quiet_since = time.monotonic()
+                     last_seen_count = len(rows)
+                 elif quiet_since is None:
+                     quiet_since = time.monotonic()
+         
+                 elif (time.monotonic() - quiet_since) >= quiet_seconds:
+                     return rows
+             else:
+                 quiet_since = None
+                 last_seen_count = len(rows)
         if time.monotonic() - last_heartbeat >= HEARTBEAT_SECONDS:
             running_count = len([r for r in rows if r[1] == "RUNNING"]) if rows else 0
             log(f"[heartbeat] fase frontiere: {len(rows)} run viste finora ({running_count} RUNNING), in attesa...")
