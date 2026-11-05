@@ -24,3 +24,8 @@ CREATE INDEX ix_dwh_articoli_informatori_articolo ON hcbi_ras.dwh_articoli_infor
 CREATE INDEX ix_dwh_articoli_informatori_informatore ON hcbi_ras.dwh_articoli_informatori (id_sorgente_informatore, ds_anno, id_sorgente_provincia, cd_versione);
 
 CREATE UNIQUE INDEX ux_dwh_articoli_informatori_id_sorgente ON hcbi_ras.dwh_articoli_informatori (id_sorgente_articoli_informatori);
+
+ALTER TABLE hcbi_ras.dwh_articoli_informatori OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_articoli_informatori IS 'DWH non storicizzato del flusso ARTICOLI_INFORMATORI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_articoli_informatori TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_articoli_informatori TO hcbi_utility;

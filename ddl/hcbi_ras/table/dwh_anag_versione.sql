@@ -29,3 +29,8 @@ CREATE TABLE hcbi_ras.dwh_anag_versione (
 	CONSTRAINT pk_dwh_anag_versione PRIMARY KEY (id_anag_versione), 
 	CONSTRAINT uq_dwh_anag_versione UNIQUE NULLS NOT DISTINCT (ds_anno_pubblicazione, cd_versione, id_sorgente_provincia)
 );
+
+ALTER TABLE hcbi_ras.dwh_anag_versione OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_anag_versione IS 'DWH del flusso ANAG_VERSIONE';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_versione TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_versione TO hcbi_utility;

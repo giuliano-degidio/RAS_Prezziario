@@ -14,3 +14,7 @@ CREATE TABLE hcbi_ras.dim_unita_misura (
 	CONSTRAINT pk_dim_unita_misura PRIMARY KEY (id_anag_unita_misura), 
 	CONSTRAINT uq_dim_unita_misura UNIQUE NULLS NOT DISTINCT (cd_unita_misura)
 );
+
+ALTER TABLE hcbi_ras.dim_unita_misura OWNER TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_unita_misura TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_unita_misura TO hcbi_utility;

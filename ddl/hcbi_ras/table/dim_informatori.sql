@@ -35,3 +35,8 @@ CREATE TABLE hcbi_ras.dim_informatori (
 	CONSTRAINT fk_dim_informatori_versione FOREIGN KEY(id_anag_versione) REFERENCES hcbi_ras.dim_versione (id_anag_versione) ON DELETE RESTRICT ON UPDATE RESTRICT, 
 	CONSTRAINT uq_dim_informatori UNIQUE NULLS NOT DISTINCT (ds_ragione_sociale, id_periodo_pubblicazione, id_anag_versione, id_anag_provincia)
 );
+
+ALTER TABLE hcbi_ras.dim_informatori OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_informatori IS 'Dimensione degli informatori alimentata da HCBI_RAS.DWH_ANAG_INFORMATORI.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_informatori TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_informatori TO hcbi_utility;

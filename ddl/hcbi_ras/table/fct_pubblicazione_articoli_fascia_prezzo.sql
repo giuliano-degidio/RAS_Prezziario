@@ -29,3 +29,10 @@ CREATE TABLE IF NOT EXISTS hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo
         ON UPDATE RESTRICT
         ON DELETE RESTRICT
 );
+COMMENT ON TABLE hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo
+    IS 'Fact contenente la fascia di prezzo degli articoli';
+
+ALTER TABLE hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo OWNER TO hcbi_ras;
+
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo TO hcbi_utility;

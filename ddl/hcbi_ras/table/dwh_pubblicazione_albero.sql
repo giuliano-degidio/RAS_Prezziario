@@ -44,3 +44,8 @@ CREATE TABLE hcbi_ras.dwh_pubblicazione_albero (
 	CONSTRAINT pk_dwh_pubblicazione_albero PRIMARY KEY (id_pubblicazione_albero), 
 	CONSTRAINT uq_dwh_pubblicazione_albero UNIQUE NULLS NOT DISTINCT (ds_anno_pubblicazione, id_sorgente_provincia, cd_articolo, cd_versione)
 );
+
+ALTER TABLE hcbi_ras.dwh_pubblicazione_albero OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_pubblicazione_albero IS 'DWH pubblicazione albero';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_pubblicazione_albero TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_pubblicazione_albero TO hcbi_utility;

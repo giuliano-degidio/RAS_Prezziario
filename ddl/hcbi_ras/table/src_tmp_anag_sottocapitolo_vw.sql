@@ -6,3 +6,8 @@ CREATE TABLE hcbi_ras.src_tmp_anag_sottocapitolo_vw (
 	nome TEXT, 
 	provincia VARCHAR(100)
 );
+
+ALTER TABLE hcbi_ras.src_tmp_anag_sottocapitolo_vw OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.src_tmp_anag_sottocapitolo_vw IS 'Tabella temporanea del flusso ANAG_SOTTOCAPITOLO alimentata dalla vista di frontiera.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.src_tmp_anag_sottocapitolo_vw TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.src_tmp_anag_sottocapitolo_vw TO hcbi_utility;

@@ -31,3 +31,8 @@ CREATE TABLE hcbi_ras.frontiera_pubblicazione_articoli (
 	spese VARCHAR(100), 
 	utili VARCHAR(100)
 );
+
+ALTER TABLE hcbi_ras.frontiera_pubblicazione_articoli OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.frontiera_pubblicazione_articoli IS 'Frontiera del flusso PUBBLICAZIONE_ARTICOLI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.frontiera_pubblicazione_articoli TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.frontiera_pubblicazione_articoli TO hcbi_utility;

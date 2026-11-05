@@ -67,3 +67,8 @@ GRANT USAGE, SELECT
     TO hcbi_ras;
 
 COMMIT;
+
+ALTER TABLE hcbi_utility.etl_execution_log_ingestion OWNER TO hcbi_utility;
+
+GRANT INSERT, SELECT, UPDATE ON hcbi_utility.etl_execution_log_ingestion TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_execution_log_ingestion TO hcbi_utility;

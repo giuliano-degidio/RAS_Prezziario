@@ -36,3 +36,8 @@ CREATE TABLE hcbi_ras.dim_firenze_articoli (
 );
 
 CREATE INDEX ix_dim_firenze_articoli_cd_codice_completo ON hcbi_ras.dim_firenze_articoli (cd_codice_completo);
+
+ALTER TABLE hcbi_ras.dim_firenze_articoli OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_firenze_articoli IS 'Dimensione articoli Firenze, alimentata da DWH_FIRENZE_ARTICOLI; contiene i tappi tecnici 0 e -1.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_firenze_articoli TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_firenze_articoli TO hcbi_utility;

@@ -14,3 +14,8 @@ CREATE TABLE hcbi_ras.dwh_anag_tipologia (
 	CONSTRAINT pk_dwh_anag_tipologia PRIMARY KEY (id_anag_tipologia), 
 	CONSTRAINT uq_dwh_anag_tipologia UNIQUE NULLS NOT DISTINCT (ds_anno, cd_tipologia, cd_versione, id_sorgente_provincia)
 );
+
+ALTER TABLE hcbi_ras.dwh_anag_tipologia OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_anag_tipologia IS 'DWH del flusso ANAG_TIPOLOGIA';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_tipologia TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_tipologia TO hcbi_utility;

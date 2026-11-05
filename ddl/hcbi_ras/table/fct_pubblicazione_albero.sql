@@ -42,3 +42,8 @@ CREATE TABLE hcbi_ras.fct_pubblicazione_albero (
 	CONSTRAINT fk_fct_pub_albero_provincia FOREIGN KEY(id_anag_provincia) REFERENCES hcbi_ras.dim_provincia (id_anag_provincia), 
 	CONSTRAINT fk_fct_pub_albero_versione FOREIGN KEY(id_anag_versione) REFERENCES hcbi_ras.dim_versione (id_anag_versione)
 );
+
+ALTER TABLE hcbi_ras.fct_pubblicazione_albero OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.fct_pubblicazione_albero IS 'Fact Pubblicazione Albero alimentata direttamente da DWH_PUBBLICAZIONE_ALBERO; PK mantenuta dalla DWH e FK verso periodo, provincia, articolo, versione e macro-gruppo.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_pubblicazione_albero TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_pubblicazione_albero TO hcbi_utility;

@@ -13,3 +13,10 @@ CREATE TABLE hcbi_ras.dim_periodo (
 	CONSTRAINT pk_dim_periodo PRIMARY KEY (id_periodo), 
 	CONSTRAINT uk_dim_periodo UNIQUE NULLS DISTINCT (ds_anno)
 );
+COMMENT ON TABLE hcbi_ras.dim_periodo
+    IS 'Dimensione dei periodi temporali utilizzati nel modello DWH.Tabella statica';
+
+ALTER TABLE hcbi_ras.dim_periodo OWNER TO hcbi_ras;
+
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_periodo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_periodo TO hcbi_utility;

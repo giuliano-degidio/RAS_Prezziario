@@ -26,3 +26,8 @@ CREATE TABLE hcbi_ras.frontiera_firenze_analisi (
 	CONSTRAINT ck_frontiera_firenze_analisi_regione CHECK (btrim(ds_regione::text) <> ''::text), 
 	CONSTRAINT ck_frontiera_firenze_analisi_riga CHECK (nr_riga_file > 0)
 );
+
+ALTER TABLE hcbi_ras.frontiera_firenze_analisi OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.frontiera_firenze_analisi IS 'Frontiera multi-annualita del flusso FIRENZE_ANALISI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.frontiera_firenze_analisi TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, TRUNCATE, UPDATE ON hcbi_ras.frontiera_firenze_analisi TO hcbi_utility;

@@ -26,3 +26,7 @@ CREATE TABLE hcbi_ras.frontiera_firenze_articoli (
 	nr_incidenza_oneri_sicurezza_prezzo VARCHAR(50), 
 	CONSTRAINT uk_frontiera_firenze_articoli UNIQUE NULLS DISTINCT (nr_anno, nr_riga_file)
 );
+
+ALTER TABLE hcbi_ras.frontiera_firenze_articoli OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.frontiera_firenze_articoli IS 'Frontiera CSV articoli Firenze 2026';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.frontiera_firenze_articoli TO hcbi_ras;

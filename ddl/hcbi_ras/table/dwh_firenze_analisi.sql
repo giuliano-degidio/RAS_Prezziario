@@ -27,3 +27,8 @@ CREATE TABLE hcbi_ras.dwh_firenze_analisi (
 	CONSTRAINT pk_dwh_firenze_analisi PRIMARY KEY (id_firenze_analisi), 
 	CONSTRAINT uq_dwh_firenze_analisi UNIQUE NULLS NOT DISTINCT (nr_anno, cd_analisi, cd_dettaglio, nr_riga_file)
 );
+
+ALTER TABLE hcbi_ras.dwh_firenze_analisi OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_firenze_analisi IS 'DWH appiattito del flusso FIRENZE_ANALISI.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_firenze_analisi TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_firenze_analisi TO hcbi_utility;

@@ -33,3 +33,8 @@ CREATE TABLE hcbi_ras.dwh_firenze_articoli (
 	CONSTRAINT pk_dwh_firenze_articoli PRIMARY KEY (id_firenze_articolo), 
 	CONSTRAINT uq_dwh_firenze_articoli UNIQUE NULLS NOT DISTINCT (nr_anno, nr_riga_file)
 );
+
+ALTER TABLE hcbi_ras.dwh_firenze_articoli OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_firenze_articoli IS 'DWH tipizzato del flusso FIRENZE_ARTICOLI.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_firenze_articoli TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_firenze_articoli TO hcbi_utility;

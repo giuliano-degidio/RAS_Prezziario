@@ -43,9 +43,16 @@ CREATE TABLE hcbi_ras.dwh_firenze_analisi_rej (
 	CONSTRAINT ck_dwh_firenze_analisi_rej_motivo CHECK (NULLIF(btrim(cd_motivo_scarto::text), ''::text) IS NOT NULL), 
 	CONSTRAINT ck_dwh_firenze_analisi_rej_tipo CHECK (cd_tipo_riga::text = ANY (ARRAY['COMPONENT'::character varying::text, 'UNKNOWN'::character varying::text]))
 );
+COMMENT ON TABLE hcbi_ras.dwh_firenze_analisi_rej
+    IS 'rej supplementare dovuta a flusso proveniente da CSV che è sottoposto ad ulteriori raffinamenti.Componenti candidati scartati durante l appiattimento e il caricamento DWH.';
 
 CREATE INDEX ix_dwh_firenze_analisi_rej_file_riga ON hcbi_ras.dwh_firenze_analisi_rej (tx_nome_file, nr_anno, nr_riga_file);
 
 CREATE INDEX ix_dwh_firenze_analisi_rej_motivo ON hcbi_ras.dwh_firenze_analisi_rej (cd_motivo_scarto, nr_anno);
 
 CREATE UNIQUE INDEX uq_dwh_firenze_analisi_rej_run ON hcbi_ras.dwh_firenze_analisi_rej (id_chain_log, id_step, nr_anno, nr_riga_file, cd_motivo_scarto) NULLS NOT DISTINCT WHERE ((id_chain_log IS NOT NULL) AND (id_step IS NOT NULL));
+
+ALTER TABLE hcbi_ras.dwh_firenze_analisi_rej OWNER TO hcbi_ras;
+
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_firenze_analisi_rej TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_firenze_analisi_rej TO hcbi_utility;

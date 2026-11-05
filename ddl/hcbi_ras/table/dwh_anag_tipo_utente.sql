@@ -10,3 +10,8 @@ CREATE TABLE hcbi_ras.dwh_anag_tipo_utente (
 	CONSTRAINT pk_dwh_anag_tipo_utente PRIMARY KEY (id_anag_tipo_utente), 
 	CONSTRAINT uq_dwh_anag_tipo_utente UNIQUE NULLS NOT DISTINCT (ds_tipo_utente)
 );
+
+ALTER TABLE hcbi_ras.dwh_anag_tipo_utente OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_anag_tipo_utente IS 'DWH del flusso ANAG_TIPO_UTENTE.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_tipo_utente TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_tipo_utente TO hcbi_utility;

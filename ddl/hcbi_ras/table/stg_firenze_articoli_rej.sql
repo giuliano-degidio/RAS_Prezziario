@@ -27,3 +27,8 @@ CREATE TABLE hcbi_ras.stg_firenze_articoli_rej (
 	tx_motivo_scarto VARCHAR(4000) NOT NULL, 
 	dt_scarto TIMESTAMP WITHOUT TIME ZONE DEFAULT clock_timestamp() NOT NULL
 );
+
+ALTER TABLE hcbi_ras.stg_firenze_articoli_rej OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_firenze_articoli_rej IS 'Scarti tecnici STG FIRENZE_ARTICOLI.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_firenze_articoli_rej TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, TRUNCATE, UPDATE ON hcbi_ras.stg_firenze_articoli_rej TO hcbi_utility;

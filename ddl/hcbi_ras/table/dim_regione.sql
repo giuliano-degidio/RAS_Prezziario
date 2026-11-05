@@ -56,3 +56,8 @@ COMMENT ON CONSTRAINT pk_dim_regione ON hcbi_ras.dim_regione
 
 COMMENT ON CONSTRAINT uq_dim_regione ON hcbi_ras.dim_regione
     IS 'Business key contestualizzata della dimensione: cd_anno, cd_regione.';
+
+ALTER TABLE hcbi_ras.dim_regione OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_regione IS 'Dimensione delle regioni; tabella statica gestita dal FRONT END.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_regione TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_regione TO hcbi_utility;

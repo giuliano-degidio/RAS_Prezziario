@@ -11,3 +11,9 @@ CREATE TABLE hcbi_ras.dwh_anag_area_vasta (
 	CONSTRAINT pk_dwh_anag_area_vasta PRIMARY KEY (id_anag_area_vasta), 
 	CONSTRAINT uq_dwh_anag_area_vasta UNIQUE NULLS NOT DISTINCT (ds_nome)
 );
+
+ALTER TABLE hcbi_ras.dwh_anag_area_vasta OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_anag_area_vasta IS 'DWH del flusso ANAG_AREA_VASTA.';
+CREATE UNIQUE INDEX uq_dwh_anag_area_vasta_sorgente ON hcbi_ras.dwh_anag_area_vasta USING btree (anno, cd_versione, id_sorgente_area_vasta) NULLS NOT DISTINCT;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_area_vasta TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_area_vasta TO hcbi_utility;

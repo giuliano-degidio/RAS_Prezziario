@@ -7,3 +7,8 @@ CREATE TABLE hcbi_ras.stg_prezzi_approvati (
 	dt_approvazione TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
 	cd_versione SMALLINT NOT NULL
 );
+
+ALTER TABLE hcbi_ras.stg_prezzi_approvati OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_prezzi_approvati IS 'Staging valida del flusso PREZZI_APPROVATI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_prezzi_approvati TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_prezzi_approvati TO hcbi_utility;

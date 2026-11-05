@@ -19,3 +19,8 @@ CREATE TABLE hcbi_utility.srv_config_step (
 	CONSTRAINT chk_srv_config_step_blocking CHECK (fl_blocking = ANY (ARRAY['Y'::bpchar, 'N'::bpchar])), 
 	CONSTRAINT chk_srv_config_step_retry CHECK (nr_retry_count >= 0)
 );
+
+ALTER TABLE hcbi_utility.srv_config_step OWNER TO hcbi_utility;
+COMMENT ON TABLE hcbi_utility.srv_config_step IS 'Tabella di servizio, controlli, configurazioni Config Step';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.srv_config_step TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.srv_config_step TO hcbi_utility;

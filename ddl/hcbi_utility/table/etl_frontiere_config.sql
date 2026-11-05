@@ -21,3 +21,8 @@ CREATE TABLE hcbi_utility.etl_frontiere_config (
 	CONSTRAINT ck_etl_frontiere_config_target_schema CHECK (target_schema = 'hcbi_ras'::text),
 	CONSTRAINT ck_etl_frontiere_config_target_table CHECK (target_table ~ '^[a-z_][a-z0-9_]{0,62}$'::text)
 );
+
+ALTER TABLE hcbi_utility.etl_frontiere_config OWNER TO hcbi_utility;
+COMMENT ON TABLE hcbi_utility.etl_frontiere_config IS 'Configurazione minima delle frontiere NiFi caricate in full refresh.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_frontiere_config TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_frontiere_config TO hcbi_utility;

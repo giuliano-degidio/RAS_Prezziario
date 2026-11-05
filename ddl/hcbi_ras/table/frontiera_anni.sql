@@ -25,3 +25,8 @@ CREATE TABLE hcbi_ras.frontiera_anni (
 	mostra_cam VARCHAR(20), 
 	id_sorgente_provincia NUMERIC DEFAULT 0 NOT NULL
 );
+
+ALTER TABLE hcbi_ras.frontiera_anni OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.frontiera_anni IS 'Frontiera del flusso ANAG_VERSIONE';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.frontiera_anni TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.frontiera_anni TO hcbi_utility;

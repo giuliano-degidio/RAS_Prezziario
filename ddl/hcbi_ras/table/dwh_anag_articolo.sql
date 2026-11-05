@@ -43,3 +43,8 @@ CREATE TABLE hcbi_ras.dwh_anag_articolo (
 	CONSTRAINT pk_dwh_anag_articolo PRIMARY KEY (id_anag_articolo), 
 	CONSTRAINT uk_dwh_anag_articolo UNIQUE NULLS DISTINCT (ds_anno, cd_articolo, cd_versione)
 );
+
+ALTER TABLE hcbi_ras.dwh_anag_articolo OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_anag_articolo IS 'DWH del flusso ANAG_ARTICOLO';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_articolo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_articolo TO hcbi_utility;

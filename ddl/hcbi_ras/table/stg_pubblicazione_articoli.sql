@@ -31,3 +31,8 @@ CREATE TABLE hcbi_ras.stg_pubblicazione_articoli (
 	nr_spese NUMERIC(24, 5), 
 	nr_utili NUMERIC(24, 5)
 );
+
+ALTER TABLE hcbi_ras.stg_pubblicazione_articoli OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_pubblicazione_articoli IS 'Staging del flusso PUBBLICAZIONE_ARTICOLI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_pubblicazione_articoli TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_pubblicazione_articoli TO hcbi_utility;

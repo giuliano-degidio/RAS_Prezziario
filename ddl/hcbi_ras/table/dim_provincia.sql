@@ -14,3 +14,8 @@ CREATE TABLE hcbi_ras.dim_provincia (
 	CONSTRAINT fk_dim_provincia_area_vasta FOREIGN KEY(id_area_vasta) REFERENCES hcbi_ras.dim_area_vasta (id_anag_area_vasta) ON DELETE RESTRICT ON UPDATE RESTRICT, 
 	CONSTRAINT uq_dim_provincia UNIQUE NULLS NOT DISTINCT (cd_provincia)
 );
+
+ALTER TABLE hcbi_ras.dim_provincia OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_provincia IS 'Dimensione delle province alimentata da HCBI_RAS.DWH_ANAG_PROVINCIA.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_provincia TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_provincia TO hcbi_utility;

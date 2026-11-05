@@ -38,3 +38,8 @@ CREATE INDEX ix_fct_prezzi_rilevati_provincia ON hcbi_ras.fct_prezzi_rilevati (i
 CREATE INDEX ix_fct_prezzi_rilevati_rilevatore ON hcbi_ras.fct_prezzi_rilevati (id_anag_utente_rilevatore);
 
 CREATE INDEX ix_fct_prezzi_rilevati_versione ON hcbi_ras.fct_prezzi_rilevati (id_anag_versione);
+
+ALTER TABLE hcbi_ras.fct_prezzi_rilevati OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.fct_prezzi_rilevati IS 'Fact atomica dei prezzi rilevati; grain ID_PREZZI_RILEVATI.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_prezzi_rilevati TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_prezzi_rilevati TO hcbi_utility;

@@ -18,3 +18,8 @@ CREATE TABLE hcbi_ras.fct_pubblicazione_analisi (
 	CONSTRAINT fk_fct_pub_analisi_periodo FOREIGN KEY(id_periodo_pubblicazione) REFERENCES hcbi_ras.dim_periodo (id_periodo) ON DELETE RESTRICT ON UPDATE RESTRICT, 
 	CONSTRAINT fk_fct_pub_analisi_versione FOREIGN KEY(id_anag_versione) REFERENCES hcbi_ras.dim_versione (id_anag_versione) ON DELETE RESTRICT ON UPDATE RESTRICT
 );
+
+ALTER TABLE hcbi_ras.fct_pubblicazione_analisi OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.fct_pubblicazione_analisi IS 'Fact alimentata direttamente da DWH_PUBBLICAZIONE_ANALISI; PK mantenuta dalla DWH e FK verso periodo, articolo e versione.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_pubblicazione_analisi TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_pubblicazione_analisi TO hcbi_utility;

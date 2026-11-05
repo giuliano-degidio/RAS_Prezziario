@@ -24,3 +24,8 @@ CREATE TABLE hcbi_ras.frontiera_anag_informatori (
 	escludi_invio_mail_assoc_listino_completa VARCHAR(20), 
 	provincia VARCHAR(100) DEFAULT '0'::character varying
 );
+
+ALTER TABLE hcbi_ras.frontiera_anag_informatori OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.frontiera_anag_informatori IS 'Frontiera del flusso ANAG_INFORMATORI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.frontiera_anag_informatori TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.frontiera_anag_informatori TO hcbi_utility;

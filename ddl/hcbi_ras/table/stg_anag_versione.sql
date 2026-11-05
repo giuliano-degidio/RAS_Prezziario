@@ -21,3 +21,8 @@ CREATE TABLE hcbi_ras.stg_anag_versione (
 	fl_mostra_cam SMALLINT NOT NULL, 
 	id_sorgente_provincia NUMERIC(10, 0) DEFAULT 0
 );
+
+ALTER TABLE hcbi_ras.stg_anag_versione OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_anag_versione IS 'Staging del flusso ANAG_VERSIONE';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_anag_versione TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_anag_versione TO hcbi_utility;

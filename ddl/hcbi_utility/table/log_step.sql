@@ -29,3 +29,8 @@ CREATE INDEX ix_log_step_chainlog ON hcbi_utility.log_step (id_chain_log);
 CREATE INDEX ix_log_step_status ON hcbi_utility.log_step (ds_status);
 
 CREATE INDEX ix_log_step_step ON hcbi_utility.log_step (id_step);
+
+ALTER TABLE hcbi_utility.log_step OWNER TO hcbi_utility;
+COMMENT ON TABLE hcbi_utility.log_step IS 'Tabella di log Step';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.log_step TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.log_step TO hcbi_utility;

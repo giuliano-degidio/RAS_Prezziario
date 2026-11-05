@@ -9,3 +9,8 @@ CREATE TABLE hcbi_ras.stg_pubblicazione_analisi (
 	id_sorgente_categoria BIGINT, 
 	nr_riga SMALLINT NOT NULL
 );
+
+ALTER TABLE hcbi_ras.stg_pubblicazione_analisi OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_pubblicazione_analisi IS 'Staging del flusso PUBBLICAZIONE_ANALISI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_pubblicazione_analisi TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_pubblicazione_analisi TO hcbi_utility;

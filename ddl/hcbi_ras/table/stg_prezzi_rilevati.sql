@@ -14,3 +14,8 @@ CREATE TABLE hcbi_ras.stg_prezzi_rilevati (
 	dt_last_update TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
 	CONSTRAINT ck_stg_prezzi_rilevati_nascosto CHECK (fl_nascosto = ANY (ARRAY[0, 1]))
 );
+
+ALTER TABLE hcbi_ras.stg_prezzi_rilevati OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_prezzi_rilevati IS 'Staging valida del flusso PREZZI_RILEVATI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_prezzi_rilevati TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_prezzi_rilevati TO hcbi_utility;

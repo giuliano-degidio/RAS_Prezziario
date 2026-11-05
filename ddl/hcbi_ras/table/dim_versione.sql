@@ -20,3 +20,8 @@ CREATE TABLE hcbi_ras.dim_versione (
 	CONSTRAINT fk_dim_versione_provincia FOREIGN KEY(id_anag_provincia) REFERENCES hcbi_ras.dim_provincia (id_anag_provincia) ON DELETE RESTRICT ON UPDATE RESTRICT, 
 	CONSTRAINT uq_dim_versione UNIQUE NULLS NOT DISTINCT (id_periodo_pubblicazione, cd_versione, id_anag_provincia)
 );
+
+ALTER TABLE hcbi_ras.dim_versione OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_versione IS 'Dimensione versioni alimentata da HCBI_RAS.DWH_ANAG_VERSIONE.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_versione TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_versione TO hcbi_utility;

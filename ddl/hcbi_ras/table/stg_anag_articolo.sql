@@ -35,3 +35,8 @@ CREATE TABLE hcbi_ras.stg_anag_articolo (
 	fl_escludi_manodopera SMALLINT NOT NULL, 
 	id_sorgente_provincia NUMERIC(10, 0) DEFAULT 0 NOT NULL
 );
+
+ALTER TABLE hcbi_ras.stg_anag_articolo OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_anag_articolo IS 'Staging del flusso ANAG_ARTICOLO';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_anag_articolo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_anag_articolo TO hcbi_utility;

@@ -47,3 +47,8 @@ CREATE TABLE hcbi_ras.dim_articolo (
 	CONSTRAINT fk_dim_articolo_versione FOREIGN KEY(id_anag_versione) REFERENCES hcbi_ras.dim_versione (id_anag_versione) ON DELETE RESTRICT ON UPDATE RESTRICT, 
 	CONSTRAINT uq_dim_articolo UNIQUE NULLS NOT DISTINCT (id_periodo_pubblicazione, cd_articolo, id_anag_versione, id_anag_provincia)
 );
+
+ALTER TABLE hcbi_ras.dim_articolo OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_articolo IS 'Dimensione articoli alimentata da HCBI_RAS.DWH_ANAG_ARTICOLO.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_articolo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_articolo TO hcbi_utility;

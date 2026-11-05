@@ -16,3 +16,8 @@ CREATE TABLE hcbi_ras.dim_capitolo (
 	CONSTRAINT fk_dim_capitolo_versione FOREIGN KEY(id_anag_versione) REFERENCES hcbi_ras.dim_versione (id_anag_versione) ON DELETE RESTRICT ON UPDATE RESTRICT, 
 	CONSTRAINT uq_dim_capitolo UNIQUE NULLS NOT DISTINCT (cd_capitolo, id_periodo_pubblicazione, id_anag_versione, id_anag_provincia)
 );
+
+ALTER TABLE hcbi_ras.dim_capitolo OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_capitolo IS 'Dimensione dei capitoli alimentata da HCBI_RAS.DWH_ANAG_CAPITOLO.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_capitolo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_capitolo TO hcbi_utility;

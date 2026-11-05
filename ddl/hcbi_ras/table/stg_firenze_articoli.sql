@@ -28,3 +28,8 @@ CREATE TABLE hcbi_ras.stg_firenze_articoli (
 	tx_caricamento_by VARCHAR(100) DEFAULT CURRENT_USER NOT NULL, 
 	CONSTRAINT uq_stg_firenze_articoli UNIQUE NULLS DISTINCT (nr_anno, nr_riga_file)
 );
+
+ALTER TABLE hcbi_ras.stg_firenze_articoli OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_firenze_articoli IS 'STG fedele ai valori originari FIRENZE_ARTICOLI.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_firenze_articoli TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, TRUNCATE, UPDATE ON hcbi_ras.stg_firenze_articoli TO hcbi_utility;

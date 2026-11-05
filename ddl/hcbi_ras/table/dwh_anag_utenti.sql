@@ -15,3 +15,7 @@ CREATE TABLE hcbi_ras.dwh_anag_utenti (
 	CONSTRAINT pk_dwh_anag_utenti PRIMARY KEY (id_anag_utente), 
 	CONSTRAINT uq_dwh_anag_utenti UNIQUE NULLS NOT DISTINCT (cd_username)
 );
+
+ALTER TABLE hcbi_ras.dwh_anag_utenti OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_anag_utenti IS 'DWH del flusso ANAG_UTENTI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_utenti TO hcbi_ras;

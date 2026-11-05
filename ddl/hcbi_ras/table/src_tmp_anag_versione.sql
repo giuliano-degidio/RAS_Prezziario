@@ -25,3 +25,8 @@ CREATE TABLE hcbi_ras.src_tmp_anag_versione (
 	mostra_cam VARCHAR(20), 
 	provincia VARCHAR(20) DEFAULT '0'::character varying
 );
+
+ALTER TABLE hcbi_ras.src_tmp_anag_versione OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.src_tmp_anag_versione IS 'Tabella temporanea sorgente del flusso ANAG_VERSIONE';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.src_tmp_anag_versione TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.src_tmp_anag_versione TO hcbi_utility;

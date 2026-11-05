@@ -14,5 +14,16 @@ CREATE TABLE hcbi_utility.etl_dwh_refresh_run (
 	CONSTRAINT ck_etl_dwh_refresh_run_running CHECK (((status)::text = 'RUNNING'::text) AND ended_at IS NULL OR (status)::text <> 'RUNNING'::text),
 	CONSTRAINT ck_etl_dwh_refresh_run_status CHECK ((status)::text = ANY ((ARRAY['RUNNING'::character varying, 'SUCCEEDED'::character varying, 'FAILED'::character varying, 'SKIPPED'::character varying])::text[]))
 );
+CREATE UNIQUE INDEX pk_etl_dwh_refresh_run ON hcbi_utility.etl_dwh_refresh_run USING btree (run_id);
 CREATE INDEX ix_etl_dwh_refresh_run_01 ON hcbi_utility.etl_dwh_refresh_run USING btree (execution_uuid, started_at DESC);
 CREATE INDEX ix_etl_dwh_refresh_run_02 ON hcbi_utility.etl_dwh_refresh_run USING btree (status, started_at DESC);
+
+COMMENT ON TABLE hcbi_utility.etl_dwh_refresh_run IS 'Tracciamento esecuzioni della procedura DWH hcbi_utility.prc_execute_chain.';
+
+ALTER TABLE hcbi_utility.etl_dwh_refresh_run OWNER TO hcbi_utility;
+
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER, REFERENCES ON hcbi_utility.etl_dwh_refresh_run TO hcbi_ras;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER, REFERENCES ON hcbi_utility.etl_dwh_refresh_run TO hcbi_utility;
+
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_dwh_refresh_run TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_dwh_refresh_run TO hcbi_utility;

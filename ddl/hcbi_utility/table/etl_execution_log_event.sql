@@ -72,3 +72,7 @@ GRANT USAGE, SELECT
     TO hcbi_ras;
 
 COMMIT;
+
+
+GRANT INSERT, SELECT ON hcbi_utility.etl_execution_log_event TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_execution_log_event TO hcbi_utility;

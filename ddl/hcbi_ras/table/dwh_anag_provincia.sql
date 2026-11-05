@@ -15,3 +15,9 @@ CREATE TABLE hcbi_ras.dwh_anag_provincia (
 	CONSTRAINT pk_dwh_anag_provincia PRIMARY KEY (id_anag_provincia), 
 	CONSTRAINT uq_dwh_anag_provincia UNIQUE NULLS NOT DISTINCT (cd_provincia)
 );
+
+ALTER TABLE hcbi_ras.dwh_anag_provincia OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_anag_provincia IS 'DWH del flusso ANAG_PROVINCIA';
+CREATE UNIQUE INDEX uq_dwh_anag_provincia_sorgente ON hcbi_ras.dwh_anag_provincia USING btree (anno, cd_versione, id_sorgente_provincia) NULLS NOT DISTINCT;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_provincia TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_provincia TO hcbi_utility;

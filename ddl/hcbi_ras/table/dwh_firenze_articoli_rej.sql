@@ -38,4 +38,13 @@ CREATE TABLE hcbi_ras.dwh_firenze_articoli_rej (
 	CONSTRAINT ck_dwh_firenze_articoli_rej_esito CHECK (cd_esito::text = 'REJECT'::text)
 );
 
+COMMENT ON TABLE hcbi_ras.dwh_firenze_analisi_rej
+    IS 'rej supplementare dovuta a flusso proveniente da CSV che è sottoposto ad ulteriori raffinamenti.Componenti candidati scartati durante l appiattimento e il caricamento DWH.';
+
+
 CREATE UNIQUE INDEX uq_dwh_firenze_articoli_rej_run ON hcbi_ras.dwh_firenze_articoli_rej (id_chain_log, id_step, nr_anno, nr_riga_file, cd_motivo_scarto) NULLS NOT DISTINCT WHERE ((id_chain_log IS NOT NULL) AND (id_step IS NOT NULL));
+
+ALTER TABLE hcbi_ras.dwh_firenze_articoli_rej OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_firenze_articoli_rej IS 'rej supplementare dovuta a flusso proveniente da CSV che è sottoposto ad ulteriori raffinamenti.Componenti candidati scartati durante l appiattimento e il caricamento DWH.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_firenze_articoli_rej TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_firenze_articoli_rej TO hcbi_utility;

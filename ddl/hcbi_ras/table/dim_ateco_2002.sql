@@ -10,3 +10,8 @@ CREATE TABLE hcbi_ras.dim_ateco_2002 (
 	CONSTRAINT pk_dim_ateco_2002 PRIMARY KEY (id_anag_ateco_2002), 
 	CONSTRAINT uq_dim_ateco_2002 UNIQUE NULLS NOT DISTINCT (cd_ateco_2002)
 );
+
+ALTER TABLE hcbi_ras.dim_ateco_2002 OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_ateco_2002 IS 'Dimensione dei codici ATECO 2002 alimentata da HCBI_RAS.DWH_ANAG_ATECO_2002.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_ateco_2002 TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_ateco_2002 TO hcbi_utility;

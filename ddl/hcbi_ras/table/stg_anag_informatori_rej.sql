@@ -25,3 +25,8 @@ CREATE TABLE hcbi_ras.stg_anag_informatori_rej (
 	fl_escludi_invio_mail_assoc_listino_completa VARCHAR(20), 
 	tx_motivo_scarto VARCHAR(4000)
 );
+
+ALTER TABLE hcbi_ras.stg_anag_informatori_rej OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_anag_informatori_rej IS 'Record scartati del flusso ANAG_INFORMATORI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_anag_informatori_rej TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_anag_informatori_rej TO hcbi_utility;

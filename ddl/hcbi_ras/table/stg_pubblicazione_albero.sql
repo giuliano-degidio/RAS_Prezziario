@@ -36,3 +36,7 @@ CREATE TABLE hcbi_ras.stg_pubblicazione_albero (
 	nr_macro_gruppo INTEGER, 
 	fl_is_cam SMALLINT
 );
+
+ALTER TABLE hcbi_ras.stg_pubblicazione_albero OWNER TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_pubblicazione_albero TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_pubblicazione_albero TO hcbi_utility;

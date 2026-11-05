@@ -33,3 +33,8 @@ CREATE INDEX ix_fct_articoli_informatori_provincia ON hcbi_ras.fct_articoli_info
 CREATE INDEX ix_fct_articoli_informatori_utente ON hcbi_ras.fct_articoli_informatori (id_anag_utente);
 
 CREATE INDEX ix_fct_articoli_informatori_versione ON hcbi_ras.fct_articoli_informatori (id_anag_versione);
+
+ALTER TABLE hcbi_ras.fct_articoli_informatori OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.fct_articoli_informatori IS 'Fact atomica delle associazioni articoli-informatori; grain ID_ARTICOLI_INFORMATORI.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_articoli_informatori TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_articoli_informatori TO hcbi_utility;

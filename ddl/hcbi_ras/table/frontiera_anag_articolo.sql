@@ -35,3 +35,8 @@ CREATE TABLE hcbi_ras.frontiera_anag_articolo (
 	escludi_manodopera VARCHAR(20), 
 	provincia VARCHAR(20) DEFAULT '0'::character varying
 );
+
+ALTER TABLE hcbi_ras.frontiera_anag_articolo OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.frontiera_anag_articolo IS 'Frontiera del flusso ANAG_ARTICOLO';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.frontiera_anag_articolo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.frontiera_anag_articolo TO hcbi_utility;

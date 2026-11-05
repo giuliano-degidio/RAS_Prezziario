@@ -47,3 +47,8 @@ CREATE TABLE hcbi_ras.fct_pubblicazione_articoli (
 	CONSTRAINT fk_fct_pub_art_unita_misura FOREIGN KEY(id_anag_unita_misura) REFERENCES hcbi_ras.dim_unita_misura (id_anag_unita_misura), 
 	CONSTRAINT fk_fct_pub_art_versione FOREIGN KEY(id_anag_versione) REFERENCES hcbi_ras.dim_versione (id_anag_versione)
 );
+
+ALTER TABLE hcbi_ras.fct_pubblicazione_articoli OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.fct_pubblicazione_articoli IS 'Fact atomica delle pubblicazioni articolo; grain ID_PUBBLICAZIONE_ARTICOLI e FK verso periodo, provincia, versione, articolo, tipologia, capitolo, sottocapitolo, unita di misura e macro-gruppo.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_pubblicazione_articoli TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_pubblicazione_articoli TO hcbi_utility;

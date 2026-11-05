@@ -25,3 +25,8 @@ CREATE INDEX ix_fct_prezzi_approvati_periodo ON hcbi_ras.fct_prezzi_approvati (i
 CREATE INDEX ix_fct_prezzi_approvati_provincia ON hcbi_ras.fct_prezzi_approvati (id_anag_provincia);
 
 CREATE INDEX ix_fct_prezzi_approvati_versione ON hcbi_ras.fct_prezzi_approvati (id_anag_versione);
+
+ALTER TABLE hcbi_ras.fct_prezzi_approvati OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.fct_prezzi_approvati IS 'Fact atomica dei prezzi approvati; grain ID_PREZZI_APPROVATI.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_prezzi_approvati TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_prezzi_approvati TO hcbi_utility;

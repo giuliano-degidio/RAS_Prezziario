@@ -13,3 +13,8 @@ CREATE TABLE hcbi_ras.frontiera_prezzi_rilevati (
 	ribaltato_da_addendum VARCHAR(100), 
 	last_update TIMESTAMP WITHOUT TIME ZONE
 );
+
+ALTER TABLE hcbi_ras.frontiera_prezzi_rilevati OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.frontiera_prezzi_rilevati IS 'Frontiera del flusso PREZZI_RILEVATI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.frontiera_prezzi_rilevati TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.frontiera_prezzi_rilevati TO hcbi_utility;

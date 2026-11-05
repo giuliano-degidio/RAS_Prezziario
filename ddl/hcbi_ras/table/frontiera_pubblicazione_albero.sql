@@ -36,3 +36,7 @@ CREATE TABLE hcbi_ras.frontiera_pubblicazione_albero (
 	macro_gruppo VARCHAR(20), 
 	is_cam VARCHAR(20)
 );
+
+ALTER TABLE hcbi_ras.frontiera_pubblicazione_albero OWNER TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.frontiera_pubblicazione_albero TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.frontiera_pubblicazione_albero TO hcbi_utility;

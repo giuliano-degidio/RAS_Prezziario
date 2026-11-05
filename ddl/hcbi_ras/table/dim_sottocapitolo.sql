@@ -16,3 +16,8 @@ CREATE TABLE hcbi_ras.dim_sottocapitolo (
 	CONSTRAINT fk_dim_sottocapitolo_versione FOREIGN KEY(id_anag_versione) REFERENCES hcbi_ras.dim_versione (id_anag_versione) ON DELETE RESTRICT ON UPDATE RESTRICT, 
 	CONSTRAINT uq_dim_sottocapitolo UNIQUE NULLS NOT DISTINCT (cd_sottocapitolo, id_periodo_pubblicazione, id_anag_versione, id_anag_provincia)
 );
+
+ALTER TABLE hcbi_ras.dim_sottocapitolo OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_sottocapitolo IS 'Dimensione dei sottocapitoli alimentata da HCBI_RAS.DWH_ANAG_SOTTOCAPITOLO.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_sottocapitolo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_sottocapitolo TO hcbi_utility;

@@ -24,3 +24,7 @@ CREATE TABLE hcbi_ras.dwh_prezzi_rilevati (
 );
 
 CREATE INDEX ix_dwh_prezzi_rilevati_articolo ON hcbi_ras.dwh_prezzi_rilevati (cd_articolo, ds_anno, cd_versione);
+
+ALTER TABLE hcbi_ras.dwh_prezzi_rilevati OWNER TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_prezzi_rilevati TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_prezzi_rilevati TO hcbi_utility;

@@ -14,3 +14,8 @@ CREATE TABLE hcbi_ras.dim_utenti (
 	CONSTRAINT pk_dim_utenti PRIMARY KEY (id_anag_utente), 
 	CONSTRAINT uq_dim_utenti UNIQUE NULLS NOT DISTINCT (cd_username)
 );
+
+ALTER TABLE hcbi_ras.dim_utenti OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_utenti IS 'Dimensione utenti alimentata da HCBI_RAS.DWH_ANAG_UTENTI.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_utenti TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_utenti TO hcbi_utility;

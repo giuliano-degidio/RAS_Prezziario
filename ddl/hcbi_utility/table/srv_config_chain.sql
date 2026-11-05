@@ -12,3 +12,8 @@ CREATE TABLE hcbi_utility.srv_config_chain (
 	CONSTRAINT uk_ds_chain_name UNIQUE NULLS DISTINCT (ds_chain_name), 
 	CONSTRAINT chk_srv_config_chain_active CHECK (fl_active = ANY (ARRAY['Y'::bpchar, 'N'::bpchar]))
 );
+
+ALTER TABLE hcbi_utility.srv_config_chain OWNER TO hcbi_utility;
+COMMENT ON TABLE hcbi_utility.srv_config_chain IS 'Tabella di servizio, controlli, configurazioni Config Chain';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.srv_config_chain TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.srv_config_chain TO hcbi_utility;

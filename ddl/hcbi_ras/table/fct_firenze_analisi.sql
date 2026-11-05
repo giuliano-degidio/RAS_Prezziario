@@ -28,3 +28,8 @@ CREATE TABLE hcbi_ras.fct_firenze_analisi (
 	CONSTRAINT fk_fct_firenze_analisi_articolo FOREIGN KEY(id_firenze_articolo) REFERENCES hcbi_ras.dim_firenze_articoli (id_firenze_articolo), 
 	CONSTRAINT uq_fct_firenze_analisi UNIQUE NULLS NOT DISTINCT (nr_anno, cd_analisi, id_firenze_articolo, nr_riga_file)
 );
+
+ALTER TABLE hcbi_ras.fct_firenze_analisi OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.fct_firenze_analisi IS 'Fact dei componenti delle analisi Firenze; CD_DETTAGLIO e sostituito dalla FK ID_FIRENZE_ARTICOLO.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_firenze_analisi TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_firenze_analisi TO hcbi_utility;

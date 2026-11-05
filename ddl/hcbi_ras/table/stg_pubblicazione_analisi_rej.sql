@@ -10,3 +10,8 @@ CREATE TABLE hcbi_ras.stg_pubblicazione_analisi_rej (
 	tx_motivo_scarto VARCHAR(4000), 
 	nr_riga SMALLINT
 );
+
+ALTER TABLE hcbi_ras.stg_pubblicazione_analisi_rej OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.stg_pubblicazione_analisi_rej IS 'Record scartati del flusso PUBBLICAZIONE_ANALISI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_pubblicazione_analisi_rej TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_pubblicazione_analisi_rej TO hcbi_utility;

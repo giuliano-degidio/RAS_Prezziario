@@ -13,3 +13,8 @@ CREATE TABLE hcbi_ras.dwh_anag_macro_gruppo (
 	CONSTRAINT uq_dwh_anag_macro_gruppo UNIQUE NULLS NOT DISTINCT (ds_nome), 
 	CONSTRAINT uq_dwh_anag_macro_gruppo_sorgente UNIQUE NULLS NOT DISTINCT (id_sorgente_macro_gruppo)
 );
+
+ALTER TABLE hcbi_ras.dwh_anag_macro_gruppo OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_anag_macro_gruppo IS 'DWH del flusso ANAG_MACRO_GRUPPO.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_macro_gruppo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_macro_gruppo TO hcbi_utility;

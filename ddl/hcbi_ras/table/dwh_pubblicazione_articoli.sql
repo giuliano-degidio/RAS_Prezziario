@@ -39,3 +39,8 @@ CREATE TABLE hcbi_ras.dwh_pubblicazione_articoli (
 	CONSTRAINT pk_dwh_pubblicazione_articoli PRIMARY KEY (id_pubblicazione_articoli), 
 	CONSTRAINT uk_dwh_pubblicazione_articoli UNIQUE NULLS DISTINCT (id_sorgente_provincia, ds_anno_pubblicazione, cd_codice_completo, cd_versione)
 );
+
+ALTER TABLE hcbi_ras.dwh_pubblicazione_articoli OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_pubblicazione_articoli IS 'DWH del flusso PUBBLICAZIONE_ARTICOLI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_pubblicazione_articoli TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_pubblicazione_articoli TO hcbi_utility;

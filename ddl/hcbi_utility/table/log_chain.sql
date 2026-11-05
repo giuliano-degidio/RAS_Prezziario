@@ -15,3 +15,8 @@ CREATE TABLE hcbi_utility.log_chain (
 );
 CREATE INDEX ix_log_chain_id_chain ON hcbi_utility.log_chain (id_chain);
 CREATE INDEX ix_log_chain_status ON hcbi_utility.log_chain (ds_status);
+
+ALTER TABLE hcbi_utility.log_chain OWNER TO hcbi_utility;
+COMMENT ON TABLE hcbi_utility.log_chain IS 'Tabella di log Chain';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.log_chain TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.log_chain TO hcbi_utility;

@@ -14,3 +14,8 @@ CREATE TABLE hcbi_ras.dwh_anag_capitolo (
 	CONSTRAINT pk_dwh_anag_capitolo PRIMARY KEY (id_anag_capitolo), 
 	CONSTRAINT uq_dwh_anag_capitolo UNIQUE NULLS NOT DISTINCT (ds_anno, cd_capitolo, cd_versione, id_sorgente_provincia)
 );
+
+ALTER TABLE hcbi_ras.dwh_anag_capitolo OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dwh_anag_capitolo IS 'DWH del flusso ANAG_CAPITOLO';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_capitolo TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_capitolo TO hcbi_utility;

@@ -10,3 +10,8 @@ CREATE TABLE hcbi_ras.dim_livello_codifica (
 	CONSTRAINT pk_dim_livello_codifica PRIMARY KEY (id_anag_livello_codifica), 
 	CONSTRAINT uq_dim_livello_codifica UNIQUE NULLS NOT DISTINCT (ds_nome)
 );
+
+ALTER TABLE hcbi_ras.dim_livello_codifica OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_livello_codifica IS 'Dimensione dei livelli di codifica alimentata da HCBI_RAS.DWH_ANAG_LIVELLO_CODIFICA.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_livello_codifica TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_livello_codifica TO hcbi_utility;

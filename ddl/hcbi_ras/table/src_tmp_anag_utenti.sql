@@ -7,3 +7,8 @@ CREATE TABLE hcbi_ras.src_tmp_anag_utenti (
 	state VARCHAR(20), 
 	usertype VARCHAR(25)
 );
+
+ALTER TABLE hcbi_ras.src_tmp_anag_utenti OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.src_tmp_anag_utenti IS 'Tabella temporanea sorgente del flusso ANAG_UTENTI';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.src_tmp_anag_utenti TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.src_tmp_anag_utenti TO hcbi_utility;

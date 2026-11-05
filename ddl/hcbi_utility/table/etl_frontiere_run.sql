@@ -21,3 +21,8 @@ CREATE TABLE hcbi_utility.etl_frontiere_run (
 );
 CREATE INDEX ix_etl_frontiere_run_01 ON hcbi_utility.etl_frontiere_run USING btree (frontiera_code, started_at DESC) WITH (fillfactor='100', deduplicate_items='true');
 CREATE INDEX ix_etl_frontiere_run_02 ON hcbi_utility.etl_frontiere_run USING btree (status, started_at DESC) WITH (fillfactor='100', deduplicate_items='true');
+
+ALTER TABLE hcbi_utility.etl_frontiere_run OWNER TO hcbi_utility;
+COMMENT ON TABLE hcbi_utility.etl_frontiere_run IS 'Log tecnico di ogni tentativo di caricamento full refresh.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_frontiere_run TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_frontiere_run TO hcbi_utility;

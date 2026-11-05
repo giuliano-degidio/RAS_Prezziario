@@ -8,3 +8,8 @@ CREATE TABLE hcbi_utility.etl_frontiere_execution_lock (
 	CONSTRAINT fk_etl_frontiere_execution_lock_run FOREIGN KEY(run_id) REFERENCES hcbi_utility.etl_frontiere_run (run_id) ON DELETE CASCADE,
 	CONSTRAINT uq_etl_frontiere_execution_lock_run UNIQUE (run_id)
 );
+
+ALTER TABLE hcbi_utility.etl_frontiere_execution_lock OWNER TO hcbi_utility;
+COMMENT ON TABLE hcbi_utility.etl_frontiere_execution_lock IS 'Lock applicativo: al massimo un full refresh attivo per frontiera.';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_frontiere_execution_lock TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_frontiere_execution_lock TO hcbi_utility;

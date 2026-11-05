@@ -37,3 +37,7 @@ CREATE TABLE hcbi_ras.stg_pubblicazione_albero_rej (
 	fl_is_cam VARCHAR(20), 
 	tx_motivo_scarto VARCHAR(4000)
 );
+
+ALTER TABLE hcbi_ras.stg_pubblicazione_albero_rej OWNER TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_pubblicazione_albero_rej TO hcbi_ras;
+GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_pubblicazione_albero_rej TO hcbi_utility;

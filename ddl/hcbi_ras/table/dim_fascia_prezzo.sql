@@ -47,3 +47,8 @@ CREATE TABLE IF NOT EXISTS hcbi_ras.dim_fascia_prezzo
             )
         )
 );
+
+ALTER TABLE hcbi_ras.dim_fascia_prezzo OWNER TO hcbi_ras;
+COMMENT ON TABLE hcbi_ras.dim_fascia_prezzo IS 'Dimensione delle fasce applicate a NR_PREZZO.Tabella statica';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_fascia_prezzo TO hcbi_ras;
+GRANT SELECT ON hcbi_ras.dim_fascia_prezzo TO hcbi_utility;

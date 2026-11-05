@@ -12,3 +12,8 @@ CREATE TABLE hcbi_utility.srv_metadata_copy_src (
 	CONSTRAINT pk_srv_metadata_copy_src PRIMARY KEY (id_config), 
 	CONSTRAINT fk_srv_metadata_copy_src_id_chain FOREIGN KEY(id_chain) REFERENCES hcbi_utility.srv_config_chain (id_chain)
 );
+
+ALTER TABLE hcbi_utility.srv_metadata_copy_src OWNER TO hcbi_utility;
+COMMENT ON TABLE hcbi_utility.srv_metadata_copy_src IS 'Tabella di servizio, controlli, configurazioni Metadata Copy Src';
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.srv_metadata_copy_src TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.srv_metadata_copy_src TO hcbi_utility;
