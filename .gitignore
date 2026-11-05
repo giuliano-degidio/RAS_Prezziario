@@ -3,7 +3,6 @@
 *.bak
 *.csv
 *.xlsx
-*.zip
 
 .vscode/
 .idea/
