@@ -33,7 +33,7 @@ TRUNCATE TABLE hcbi_ras.fct_prezzi_approvati;
 TRUNCATE TABLE hcbi_ras.fct_prezzi_rilevati;                            
 TRUNCATE TABLE hcbi_ras.fct_pubblicazione_albero;                       
 TRUNCATE TABLE hcbi_ras.fct_pubblicazione_analisi;                      
-TRUNCATE TABLE hcbi_ras.fct_pubblicazione_articoli;  
+--TRUNCATE TABLE hcbi_ras.fct_pubblicazione_articoli;  
 DELETE FROM hcbi_ras.fct_pubblicazione_articoli; -- delete perchè è referenziata da una fk di fct_pubblicazione_articoli_fascia_prezzo
 --TRUNCATE TABLE hcbi_ras.fct_output_match; --TABELLA GESTITA LATO FRONT END    NON TRONCARE                  
 		  
