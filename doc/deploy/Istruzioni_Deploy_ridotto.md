@@ -285,3 +285,18 @@ sudo systemctl status dwh-scheduler.timer dwh-scheduler.service
 sudo journalctl -u dwh-scheduler.service --since today
 sudo tail -n 100 /opt/etl/log/dwh-scheduler/dwh-scheduler.log
 ```
+### 2.8 TroubleShooting
+Mancato Refresh del DWH : se sul file di log 'dwh-scheduler.log' compare ripetutamente la voce:
+
+2026-11-06 13:10:49,101 INFO [run_group_cycle] 2026-11-06T12:10:49.101446+00:00 [heartbeat] fase DWH: in attesa della riga di avvio nel log DWH, in attesa...
+2026-11-06 13:11:49,116 INFO [run_group_cycle] 2026-11-06T12:11:49.116248+00:00 [heartbeat] fase DWH: in attesa della riga di avvio nel log DWH, in attesa...
+e poi scatta il timeout:
+2026-11-06 13:38:49,542 INFO [run_group_cycle] 2026-11-06T12:38:49.537584+00:00 [TIMEOUT] Timeout: nessuna riga 'Avvio DWH refresh' nel log /opt/etl/log/frontiere-metadata-runner/dwh-refresh.log dopo 1800.0s
+2026-11-06 13:38:49,545 INFO [run_group_cycle] 2026-11-06T12:38:49.537650+00:00 Arresto process group (state=STOPPED)...
+2026-11-06 13:38:50,533 INFO [run_group_cycle] 2026-11-06T12:38:50.529430+00:00 Ciclo terminato con exit_code=5
+2026-11-06 13:38:54,643 INFO Run d34321bd-d818-4fa0-ab8f-23e093061d8d concluso con stato FAILED
+
+Probabilmente ci sono dei processi appessi su NiFI, per eliminarli:
+sulla UI web di NiFi selezionare il gruppo FRONTIERE_METADATA_RUNNER
+con il tasto destro del mouse selezionare 'Empty All Queues' 
+e rilanciare l'intero processo manualmente.
