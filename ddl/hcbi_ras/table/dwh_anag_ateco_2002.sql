@@ -16,3 +16,5 @@ ALTER TABLE hcbi_ras.dwh_anag_ateco_2002 OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_anag_ateco_2002 IS 'DWH del flusso ANAG_ATECO_2002.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_ateco_2002 TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_ateco_2002 TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uq_dwh_anag_ateco_2002 ON hcbi_ras.dwh_anag_ateco_2002 IS 'Business key del flusso ANAG_ATECO_2002: cd_ateco_2002.';

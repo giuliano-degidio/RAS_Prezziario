@@ -21,3 +21,11 @@ ALTER TABLE hcbi_ras.dim_sottocapitolo OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dim_sottocapitolo IS 'Dimensione dei sottocapitoli alimentata da HCBI_RAS.DWH_ANAG_SOTTOCAPITOLO.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_sottocapitolo TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_sottocapitolo TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.dim_sottocapitolo.id_anag_sottocapitolo IS 'Chiave primaria mantenuta dalla chiave DWH sorgente.';
+COMMENT ON COLUMN hcbi_ras.dim_sottocapitolo.cd_sottocapitolo IS 'Codice del sottocapitolo normalizzato eliminando esclusivamente un eventuale punto finale.';
+COMMENT ON COLUMN hcbi_ras.dim_sottocapitolo.ds_sottocapitolo IS 'Descrizione del sottocapitolo.';
+COMMENT ON COLUMN hcbi_ras.dim_sottocapitolo.id_anag_provincia IS 'FK verso DIM_PROVINCIA risolta in DWH_ANAG_PROVINCIA tramite anno, cd_versione di DWH_ANAG_SOTTOCAPITOLO e id_sorgente_provincia; la DIM e quindi raggiunta tramite id_anag_provincia nel medesimo contesto anno/cd_versione.';
+COMMENT ON COLUMN hcbi_ras.dim_sottocapitolo.id_periodo_pubblicazione IS 'FK verso DIM_PERIODO risolta tramite DS_ANNO.';
+COMMENT ON COLUMN hcbi_ras.dim_sottocapitolo.id_anag_versione IS 'FK verso DIM_VERSIONE risolta per periodo, versione e provincia.';
+COMMENT ON CONSTRAINT uq_dim_sottocapitolo ON hcbi_ras.dim_sottocapitolo IS 'Business key: cd_sottocapitolo, id_periodo_pubblicazione, id_anag_versione, id_anag_provincia.';

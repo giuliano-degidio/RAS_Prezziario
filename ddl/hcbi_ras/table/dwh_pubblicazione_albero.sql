@@ -49,3 +49,5 @@ ALTER TABLE hcbi_ras.dwh_pubblicazione_albero OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_pubblicazione_albero IS 'DWH pubblicazione albero';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_pubblicazione_albero TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_pubblicazione_albero TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uq_dwh_pubblicazione_albero ON hcbi_ras.dwh_pubblicazione_albero IS 'Business key del flusso PUBBLICAZIONE_ALBERO: (ds_anno_pubblicazione, id_sorgente_provincia, cd_articolo, cd_versione). I valori NULL, se in futuro ammessi dal DDL, sono considerati uguali ai fini dell''unicità.';

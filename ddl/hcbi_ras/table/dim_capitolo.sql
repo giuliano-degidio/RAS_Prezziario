@@ -21,3 +21,11 @@ ALTER TABLE hcbi_ras.dim_capitolo OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dim_capitolo IS 'Dimensione dei capitoli alimentata da HCBI_RAS.DWH_ANAG_CAPITOLO.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_capitolo TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_capitolo TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.dim_capitolo.id_anag_capitolo IS 'Chiave primaria mantenuta dalla chiave DWH sorgente.';
+COMMENT ON COLUMN hcbi_ras.dim_capitolo.cd_capitolo IS 'Codice del capitolo normalizzato eliminando esclusivamente un eventuale punto finale.';
+COMMENT ON COLUMN hcbi_ras.dim_capitolo.ds_capitolo IS 'Descrizione del capitolo.';
+COMMENT ON COLUMN hcbi_ras.dim_capitolo.id_anag_provincia IS 'FK verso DIM_PROVINCIA risolta in DWH_ANAG_PROVINCIA tramite anno, cd_versione di DWH_ANAG_CAPITOLO e id_sorgente_provincia; la DIM e quindi raggiunta tramite id_anag_provincia nel medesimo contesto anno/cd_versione.';
+COMMENT ON COLUMN hcbi_ras.dim_capitolo.id_periodo_pubblicazione IS 'FK verso DIM_PERIODO risolta tramite DS_ANNO.';
+COMMENT ON COLUMN hcbi_ras.dim_capitolo.id_anag_versione IS 'FK verso DIM_VERSIONE risolta per periodo, versione e provincia.';
+COMMENT ON CONSTRAINT uq_dim_capitolo ON hcbi_ras.dim_capitolo IS 'Business key: cd_capitolo, id_periodo_pubblicazione, id_anag_versione, id_anag_provincia.';

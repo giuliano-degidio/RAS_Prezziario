@@ -52,3 +52,5 @@ ALTER TABLE hcbi_ras.dim_articolo OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dim_articolo IS 'Dimensione articoli alimentata da HCBI_RAS.DWH_ANAG_ARTICOLO.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_articolo TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_articolo TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uq_dim_articolo ON hcbi_ras.dim_articolo IS 'Business key trasformata: periodo, codice articolo, versione e provincia.';

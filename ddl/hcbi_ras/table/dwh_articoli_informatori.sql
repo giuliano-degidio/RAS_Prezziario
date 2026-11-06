@@ -29,3 +29,5 @@ ALTER TABLE hcbi_ras.dwh_articoli_informatori OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_articoli_informatori IS 'DWH non storicizzato del flusso ARTICOLI_INFORMATORI';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_articoli_informatori TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_articoli_informatori TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uk_dwh_articoli_informatori ON hcbi_ras.dwh_articoli_informatori IS 'Business key: id_sorgente_informatore, cd_articolo, ds_anno, id_sorgente_provincia, cd_versione';

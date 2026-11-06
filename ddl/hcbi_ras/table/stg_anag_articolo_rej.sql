@@ -41,3 +41,5 @@ ALTER TABLE hcbi_ras.stg_anag_articolo_rej OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.stg_anag_articolo_rej IS 'Record scartati del flusso ANAG_ARTICOLO';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_anag_articolo_rej TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_anag_articolo_rej TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.stg_anag_articolo_rej.id_sorgente_provincia IS 'Colonna aggiunta manualmente dallo sviluppo ETL, in attesa che venga implementata nel DB operazionale.';

@@ -18,3 +18,6 @@ ALTER TABLE hcbi_ras.dwh_anag_livello_codifica OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_anag_livello_codifica IS 'DWH del flusso ANAG_LIVELLO_CODIFICA.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_livello_codifica TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_livello_codifica TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uq_dwh_anag_livello_codifica ON hcbi_ras.dwh_anag_livello_codifica IS 'Business key del flusso ANAG_LIVELLO_CODIFICA: ds_nome.';
+COMMENT ON CONSTRAINT uq_dwh_anag_livello_codifica_sorgente ON hcbi_ras.dwh_anag_livello_codifica IS 'Candidate key sorgente: id_sorgente_livello_codifica.';

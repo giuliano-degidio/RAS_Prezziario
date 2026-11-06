@@ -17,3 +17,5 @@ COMMENT ON TABLE hcbi_ras.dwh_anag_area_vasta IS 'DWH del flusso ANAG_AREA_VASTA
 CREATE UNIQUE INDEX uq_dwh_anag_area_vasta_sorgente ON hcbi_ras.dwh_anag_area_vasta USING btree (anno, cd_versione, id_sorgente_area_vasta) NULLS NOT DISTINCT;
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_area_vasta TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_area_vasta TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uq_dwh_anag_area_vasta ON hcbi_ras.dwh_anag_area_vasta IS 'Business key del flusso ANAG_AREA_VASTA: anno, cd_versione, ds_nome.';

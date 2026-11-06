@@ -20,3 +20,5 @@ ALTER TABLE hcbi_ras.dwh_anag_unita_misura OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_anag_unita_misura IS 'DWH del flusso ANAG_UNITA_MISURA';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_unita_misura TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_unita_misura TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uq_dwh_anag_unita_misura ON hcbi_ras.dwh_anag_unita_misura IS 'Business key: cd_unita_misura.';

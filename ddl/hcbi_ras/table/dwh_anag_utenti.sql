@@ -18,4 +18,6 @@ CREATE TABLE hcbi_ras.dwh_anag_utenti (
 
 ALTER TABLE hcbi_ras.dwh_anag_utenti OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_anag_utenti IS 'DWH del flusso ANAG_UTENTI';
-GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_utenti TO hcbi_ras;
+GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_utenti TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uq_dwh_anag_utenti ON hcbi_ras.dwh_anag_utenti IS 'Business key del flusso ANAG_UTENTI: cd_username.';

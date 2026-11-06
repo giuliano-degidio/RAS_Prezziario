@@ -40,3 +40,5 @@ ALTER TABLE hcbi_ras.src_tmp_anag_articolo OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.src_tmp_anag_articolo IS 'Tabella temporanea sorgente del flusso ANAG_ARTICOLO';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.src_tmp_anag_articolo TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.src_tmp_anag_articolo TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.src_tmp_anag_articolo.provincia IS 'Colonna aggiunta manualmente dallo sviluppo ETL, in attesa che venga implementata nel DB operazionale.';

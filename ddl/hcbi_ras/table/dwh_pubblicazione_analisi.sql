@@ -22,3 +22,5 @@ ALTER TABLE hcbi_ras.dwh_pubblicazione_analisi OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_pubblicazione_analisi IS 'DWH del flusso PUBBLICAZIONE_ANALISI';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_pubblicazione_analisi TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_pubblicazione_analisi TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.dwh_pubblicazione_analisi.cd_articolo IS 'Codice articolo associato all''analisi';

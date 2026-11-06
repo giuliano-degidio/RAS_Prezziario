@@ -26,3 +26,6 @@ ALTER TABLE hcbi_utility.etl_frontiere_config OWNER TO hcbi_utility;
 COMMENT ON TABLE hcbi_utility.etl_frontiere_config IS 'Configurazione minima delle frontiere NiFi caricate in full refresh.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_frontiere_config TO hcbi_ras;
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.etl_frontiere_config TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_utility.etl_frontiere_config.source_query IS 'Query completa di sola lettura eseguita sul servizio sorgente configurato.';
+COMMENT ON COLUMN hcbi_utility.etl_frontiere_config.target_table IS 'Tabella di pre-staging nello schema hcbi_ras.';

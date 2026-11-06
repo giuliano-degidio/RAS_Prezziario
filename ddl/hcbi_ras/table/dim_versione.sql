@@ -25,3 +25,11 @@ ALTER TABLE hcbi_ras.dim_versione OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dim_versione IS 'Dimensione versioni alimentata da HCBI_RAS.DWH_ANAG_VERSIONE.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_versione TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_versione TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.dim_versione.id_anag_versione IS 'Chiave primaria mantenuta dalla chiave DWH sorgente.';
+COMMENT ON COLUMN hcbi_ras.dim_versione.id_periodo_pubblicazione IS 'FK verso DIM_PERIODO ottenuta tramite anno di pubblicazione; -1 se non risolta.';
+COMMENT ON COLUMN hcbi_ras.dim_versione.cd_versione IS 'Codice della versione.';
+COMMENT ON COLUMN hcbi_ras.dim_versione.ds_versione IS 'Descrizione della versione.';
+COMMENT ON COLUMN hcbi_ras.dim_versione.id_anag_provincia IS 'FK verso DIM_PROVINCIA ottenuta tramite DWH_ANAG_PROVINCIA usando anno, cd_versione di DWH_ANAG_VERSIONE e id_sorgente_provincia; la DIM e quindi raggiunta tramite id_anag_provincia nel medesimo contesto anno/cd_versione; -1 se non risolta.';
+COMMENT ON CONSTRAINT pk_dim_versione ON hcbi_ras.dim_versione IS 'Chiave primaria: id_anag_versione.';
+COMMENT ON CONSTRAINT uq_dim_versione ON hcbi_ras.dim_versione IS 'Business key: id_periodo_pubblicazione, cd_versione, id_anag_provincia.';

@@ -17,3 +17,7 @@ ALTER TABLE hcbi_utility.srv_config_chain OWNER TO hcbi_utility;
 COMMENT ON TABLE hcbi_utility.srv_config_chain IS 'Tabella di servizio, controlli, configurazioni Config Chain';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.srv_config_chain TO hcbi_ras;
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_utility.srv_config_chain TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_utility.srv_config_chain.id_chain IS 'ID di sistema Chain';
+COMMENT ON COLUMN hcbi_utility.srv_config_chain.ds_chain_name IS 'Descrizione Chain Name';
+COMMENT ON COLUMN hcbi_utility.srv_config_chain.tx_description IS 'Descrizione Catena';

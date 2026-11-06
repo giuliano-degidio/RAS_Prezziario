@@ -19,3 +19,6 @@ ALTER TABLE hcbi_ras.dwh_anag_tipologia OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_anag_tipologia IS 'DWH del flusso ANAG_TIPOLOGIA';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_tipologia TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_tipologia TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.dwh_anag_tipologia.id_sorgente_provincia IS 'Identificativo sorgente della provincia e componente della business key.';
+COMMENT ON CONSTRAINT uq_dwh_anag_tipologia ON hcbi_ras.dwh_anag_tipologia IS 'Business key: ds_anno, cd_tipologia, cd_versione, id_sorgente_provincia.';

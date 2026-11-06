@@ -30,3 +30,11 @@ ALTER TABLE hcbi_ras.fct_prezzi_approvati OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.fct_prezzi_approvati IS 'Fact atomica dei prezzi approvati; grain ID_PREZZI_APPROVATI.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_prezzi_approvati TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_prezzi_approvati TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.fct_prezzi_approvati.id_prezzi_approvati IS 'PK mantenuta da DWH_PREZZI_APPROVATI.';
+COMMENT ON COLUMN hcbi_ras.fct_prezzi_approvati.id_periodo_pubblicazione IS 'FK verso DIM_PERIODO; -1 se la lookup non e risolta.';
+COMMENT ON COLUMN hcbi_ras.fct_prezzi_approvati.id_anag_provincia IS 'FK verso DIM_PROVINCIA; -1 se la lookup non e risolta.';
+COMMENT ON COLUMN hcbi_ras.fct_prezzi_approvati.id_anag_versione IS 'FK verso DIM_VERSIONE; -1 se la lookup non e risolta.';
+COMMENT ON COLUMN hcbi_ras.fct_prezzi_approvati.id_anag_articolo IS 'FK verso DIM_ARTICOLO; -1 se la lookup non e risolta.';
+COMMENT ON COLUMN hcbi_ras.fct_prezzi_approvati.nr_prezzo IS 'Prezzo approvato proveniente dal DWH.';
+COMMENT ON COLUMN hcbi_ras.fct_prezzi_approvati.dt_approvazione IS 'Data e ora di approvazione del prezzo.';

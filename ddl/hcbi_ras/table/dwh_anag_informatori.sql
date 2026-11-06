@@ -37,3 +37,5 @@ ALTER TABLE hcbi_ras.dwh_anag_informatori OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_anag_informatori IS 'DWH del flusso ANAG_INFORMATORI';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_informatori TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_informatori TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uq_dwh_anag_informatori ON hcbi_ras.dwh_anag_informatori IS 'Business key: ds_ragione_sociale, ds_anno_pubblicazione, cd_versione, id_sorgente_provincia.';

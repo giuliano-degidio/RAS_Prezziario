@@ -40,3 +40,11 @@ ALTER TABLE hcbi_ras.stg_anag_articolo OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.stg_anag_articolo IS 'Staging del flusso ANAG_ARTICOLO';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_anag_articolo TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_anag_articolo TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.stg_anag_articolo.id_sorgente_articolo IS 'Identificativo dell''articolo nella sorgente operazionale';
+COMMENT ON COLUMN hcbi_ras.stg_anag_articolo.ds_anno IS 'Anno dell''articolo';
+COMMENT ON COLUMN hcbi_ras.stg_anag_articolo.cd_articolo IS 'Codice dell''articolo';
+COMMENT ON COLUMN hcbi_ras.stg_anag_articolo.cd_versione IS 'Versione/addendum dell''articolo';
+COMMENT ON COLUMN hcbi_ras.stg_anag_articolo.fl_esporta_come_articolo IS 'Indicatore esportazione come articolo: 0 falso, 1 vero';
+COMMENT ON COLUMN hcbi_ras.stg_anag_articolo.fl_escludi_manodopera IS 'Indicatore esclusione manodopera: 0 falso, 1 vero';
+COMMENT ON COLUMN hcbi_ras.stg_anag_articolo.id_sorgente_provincia IS 'Colonna aggiunta manualmente dallo sviluppo ETL, in attesa che venga implementata nel DB operazionale.';

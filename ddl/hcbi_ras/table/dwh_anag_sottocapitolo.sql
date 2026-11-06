@@ -19,3 +19,6 @@ ALTER TABLE hcbi_ras.dwh_anag_sottocapitolo OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dwh_anag_sottocapitolo IS 'DWH del flusso ANAG_SOTTOCAPITOLO';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_sottocapitolo TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_sottocapitolo TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.dwh_anag_sottocapitolo.id_sorgente_provincia IS 'Identificativo sorgente della provincia e componente della business key.';
+COMMENT ON CONSTRAINT uq_dwh_anag_sottocapitolo ON hcbi_ras.dwh_anag_sottocapitolo IS 'Business key: ds_anno, cd_sottocapitolo, cd_versione, id_sorgente_provincia.';

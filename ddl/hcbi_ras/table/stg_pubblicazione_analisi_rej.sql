@@ -15,3 +15,5 @@ ALTER TABLE hcbi_ras.stg_pubblicazione_analisi_rej OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.stg_pubblicazione_analisi_rej IS 'Record scartati del flusso PUBBLICAZIONE_ANALISI';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.stg_pubblicazione_analisi_rej TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.stg_pubblicazione_analisi_rej TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.stg_pubblicazione_analisi_rej.cd_articolo IS 'Codice articolo associato all''analisi';

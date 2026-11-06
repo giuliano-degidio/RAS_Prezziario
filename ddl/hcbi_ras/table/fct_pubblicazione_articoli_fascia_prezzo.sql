@@ -36,3 +36,6 @@ ALTER TABLE hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo OWNER TO hcbi_ras;
 
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo.id_pubblicazione_articoli IS 'PK e FK verso FCT_PUBBLICAZIONE_ARTICOLI.';
+COMMENT ON COLUMN hcbi_ras.fct_pubblicazione_articoli_fascia_prezzo.id_fascia_prezzo IS 'FK verso DIM_FASCIA_PREZZO; 0 prezzo non disponibile; -1 fascia non determinata.';

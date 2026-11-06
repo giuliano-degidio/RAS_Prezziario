@@ -23,3 +23,5 @@ ALTER TABLE hcbi_ras.fct_pubblicazione_analisi OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.fct_pubblicazione_analisi IS 'Fact alimentata direttamente da DWH_PUBBLICAZIONE_ANALISI; PK mantenuta dalla DWH e FK verso periodo, articolo e versione.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.fct_pubblicazione_analisi TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.fct_pubblicazione_analisi TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.fct_pubblicazione_analisi.cd_codice_analisi IS 'Codice analisi riportato direttamente dalla DWH come attributo degenerato.';

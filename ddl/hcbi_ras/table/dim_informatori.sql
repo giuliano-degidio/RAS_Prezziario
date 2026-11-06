@@ -40,3 +40,10 @@ ALTER TABLE hcbi_ras.dim_informatori OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dim_informatori IS 'Dimensione degli informatori alimentata da HCBI_RAS.DWH_ANAG_INFORMATORI.';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_informatori TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dim_informatori TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.dim_informatori.id_anag_informatore IS 'Chiave primaria mantenuta dalla chiave DWH sorgente.';
+COMMENT ON COLUMN hcbi_ras.dim_informatori.id_anag_ateco_2002 IS 'FK verso DIM_ATECO_2002: 0 se codice non valorizzato; -1 se valorizzato ma non risolto.';
+COMMENT ON COLUMN hcbi_ras.dim_informatori.id_periodo_pubblicazione IS 'FK verso DIM_PERIODO ottenuta da DS_ANNO_PUBBLICAZIONE.';
+COMMENT ON COLUMN hcbi_ras.dim_informatori.id_anag_versione IS 'FK verso DIM_VERSIONE risolta con periodo, codice versione e provincia.';
+COMMENT ON COLUMN hcbi_ras.dim_informatori.id_anag_provincia IS 'FK verso DIM_PROVINCIA: 0 se il riferimento sorgente non e valorizzato; altrimenti lookup in DWH_ANAG_PROVINCIA tramite anno, cd_versione di DWH_ANAG_INFORMATORI e id_sorgente_provincia; la DIM e raggiunta tramite id_anag_provincia nel medesimo contesto anno/cd_versione; -1 se non risolta.';
+COMMENT ON CONSTRAINT uq_dim_informatori ON hcbi_ras.dim_informatori IS 'Business key: ragione sociale, periodo, versione e provincia.';

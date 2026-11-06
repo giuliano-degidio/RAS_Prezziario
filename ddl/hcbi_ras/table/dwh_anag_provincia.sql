@@ -21,3 +21,6 @@ COMMENT ON TABLE hcbi_ras.dwh_anag_provincia IS 'DWH del flusso ANAG_PROVINCIA';
 CREATE UNIQUE INDEX uq_dwh_anag_provincia_sorgente ON hcbi_ras.dwh_anag_provincia USING btree (anno, cd_versione, id_sorgente_provincia) NULLS NOT DISTINCT;
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dwh_anag_provincia TO hcbi_ras;
 GRANT DELETE, INSERT, SELECT, UPDATE ON hcbi_ras.dwh_anag_provincia TO hcbi_utility;
+
+COMMENT ON CONSTRAINT uq_dwh_anag_provincia ON hcbi_ras.dwh_anag_provincia IS 'Business key del flusso ANAG_PROVINCIA: anno, cd_versione, cd_provincia.';
+COMMENT ON CONSTRAINT uq_dwh_anag_provincia_sorgente ON hcbi_ras.dwh_anag_provincia IS 'Chiave operazionale del flusso ANAG_PROVINCIA: anno, cd_versione, id_sorgente_provincia.';

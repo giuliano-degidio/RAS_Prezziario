@@ -52,3 +52,11 @@ ALTER TABLE hcbi_ras.dim_fascia_prezzo OWNER TO hcbi_ras;
 COMMENT ON TABLE hcbi_ras.dim_fascia_prezzo IS 'Dimensione delle fasce applicate a NR_PREZZO.Tabella statica';
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON hcbi_ras.dim_fascia_prezzo TO hcbi_ras;
 GRANT SELECT ON hcbi_ras.dim_fascia_prezzo TO hcbi_utility;
+
+COMMENT ON COLUMN hcbi_ras.dim_fascia_prezzo.id_fascia_prezzo IS 'PK. -1 fascia non determinata; 0 prezzo non disponibile.';
+COMMENT ON COLUMN hcbi_ras.dim_fascia_prezzo.cd_fascia_prezzo IS 'Codice funzionale stabile della fascia.';
+COMMENT ON COLUMN hcbi_ras.dim_fascia_prezzo.ds_fascia_prezzo IS 'Descrizione della fascia per il livello semantico.';
+COMMENT ON COLUMN hcbi_ras.dim_fascia_prezzo.nr_limite_inferiore IS 'Limite inferiore incluso per le fasce positive.';
+COMMENT ON COLUMN hcbi_ras.dim_fascia_prezzo.nr_limite_superiore IS 'Limite superiore escluso; NULL indica assenza di limite massimo.';
+COMMENT ON COLUMN hcbi_ras.dim_fascia_prezzo.nr_ordinamento IS 'Ordine di presentazione della fascia.';
+COMMENT ON COLUMN hcbi_ras.dim_fascia_prezzo.fl_attivo IS '1 fascia attiva; 0 fascia non utilizzabile nelle nuove classificazioni.';
