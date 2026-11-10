@@ -1,4 +1,5 @@
-CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_prezzi_rilevati_src" AS
+CREATE OR REPLACE VIEW hcbi_ras.v_fct_prezzi_rilevati_src
+ AS
  WITH base AS MATERIALIZED (
          SELECT p.id_prezzi_rilevati,
             p.cd_articolo,
@@ -19,8 +20,8 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_prezzi_rilevati_src" AS
             prv.id_anag_provincia
            FROM hcbi_ras.dwh_prezzi_rilevati p
              LEFT JOIN hcbi_ras.dim_periodo per ON per.ds_anno = p.ds_anno
-             LEFT JOIN hcbi_ras.dwh_anag_provincia dpr ON dpr.id_sorgente_provincia = p.id_sorgente_provincia::bigint
-             LEFT JOIN hcbi_ras.dim_provincia prv ON prv.id_anag_provincia = dpr.id_anag_provincia
+             LEFT JOIN hcbi_ras.dwh_anag_provincia dpr ON dpr.anno = p.ds_anno AND dpr.cd_versione = p.cd_versione AND dpr.id_sorgente_provincia = p.id_sorgente_provincia::bigint
+             LEFT JOIN hcbi_ras.dim_provincia prv ON prv.id_anag_provincia = dpr.id_anag_provincia AND prv.anno = dpr.anno AND prv.cd_versione = dpr.cd_versione
         ), resolved AS MATERIALIZED (
          SELECT b.id_prezzi_rilevati,
             b.cd_articolo,
@@ -46,38 +47,22 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_prezzi_rilevati_src" AS
             dusr.id_anag_utente AS dwh_id_anag_utente,
             usr.id_anag_utente AS id_anag_utente_rilevatore
            FROM base b
-             LEFT JOIN hcbi_ras.dim_versione ver ON ver.id_periodo_pubblicazione = b.id_periodo AND ver.cd_versione = b.cd_versione AND ver.id_anag_provincia = b.id_anag_provincia
-             LEFT JOIN hcbi_ras.dim_articolo art ON art.id_periodo_pubblicazione = b.id_periodo AND btrim(art.cd_articolo::text) = btrim(b.cd_articolo_normalizzato::text) AND art.id_anag_versione = ver.id_anag_versione AND art.id_anag_provincia = b.id_anag_provincia
-             LEFT JOIN hcbi_ras.dwh_anag_informatori dinf ON dinf.id_sorgente_informatore = b.id_sorgente_informatore AND dinf.id_sorgente_provincia = b.id_sorgente_provincia::bigint AND dinf.ds_anno_pubblicazione = b.ds_anno AND dinf.cd_versione = b.cd_versione
+             LEFT JOIN hcbi_ras.dwh_anag_versione ver_dwh ON ver_dwh.ds_anno_pubblicazione = b.ds_anno AND ver_dwh.cd_versione = b.cd_versione AND ver_dwh.id_sorgente_provincia = 0::numeric
+             LEFT JOIN hcbi_ras.dim_versione ver ON ver.id_anag_versione = ver_dwh.id_anag_versione
+             LEFT JOIN hcbi_ras.dwh_anag_articolo art_dwh ON art_dwh.ds_anno = b.ds_anno AND btrim(art_dwh.cd_articolo::text) = btrim(b.cd_articolo::text) AND art_dwh.cd_versione = b.cd_versione AND art_dwh.id_sorgente_provincia = 0::numeric
+             LEFT JOIN hcbi_ras.dim_articolo art ON art.id_anag_articolo = art_dwh.id_anag_articolo
+             LEFT JOIN hcbi_ras.dwh_anag_informatori dinf ON dinf.id_sorgente_informatore = b.id_sorgente_informatore AND dinf.id_sorgente_provincia = 0 AND dinf.ds_anno_pubblicazione = b.ds_anno AND dinf.cd_versione = b.cd_versione
              LEFT JOIN hcbi_ras.dim_informatori inf ON inf.id_anag_informatore = dinf.id_anag_informatore
              LEFT JOIN hcbi_ras.dwh_anag_utenti dusr ON dusr.id_sorgente_utente = b.id_sorgente_rilevatore::bigint
              LEFT JOIN hcbi_ras.dim_utenti usr ON usr.id_anag_utente = dusr.id_anag_utente
         )
  SELECT id_prezzi_rilevati,
-        CASE
-            WHEN id_periodo IS NULL THEN '-1'::integer
-            ELSE id_periodo
-        END AS id_periodo_pubblicazione,
-        CASE
-            WHEN id_anag_provincia IS NULL THEN '-1'::integer::bigint
-            ELSE id_anag_provincia
-        END AS id_anag_provincia,
-        CASE
-            WHEN id_anag_versione IS NULL THEN '-1'::integer::bigint
-            ELSE id_anag_versione
-        END AS id_anag_versione,
-        CASE
-            WHEN id_anag_articolo IS NULL THEN '-1'::integer::bigint
-            ELSE id_anag_articolo
-        END AS id_anag_articolo,
-        CASE
-            WHEN id_anag_informatore IS NULL THEN '-1'::integer::bigint
-            ELSE id_anag_informatore
-        END AS id_anag_informatore,
-        CASE
-            WHEN id_anag_utente_rilevatore IS NULL THEN '-1'::integer::bigint
-            ELSE id_anag_utente_rilevatore
-        END AS id_anag_utente_rilevatore,
+    COALESCE(id_periodo, '-1'::integer) AS id_periodo_pubblicazione,
+    COALESCE(id_anag_provincia, '-1'::integer::bigint) AS id_anag_provincia,
+    COALESCE(id_anag_versione, '-1'::integer::bigint) AS id_anag_versione,
+    COALESCE(id_anag_articolo, '-1'::integer::bigint) AS id_anag_articolo,
+    COALESCE(id_anag_informatore, '-1'::integer::bigint) AS id_anag_informatore,
+    COALESCE(id_anag_utente_rilevatore, '-1'::integer::bigint) AS id_anag_utente_rilevatore,
     nr_prezzo,
     dt_inserimento,
     fl_nascosto,
@@ -104,15 +89,15 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_prezzi_rilevati_src" AS
             ELSE NULL::text
         END,
         CASE
-            WHEN id_anag_versione IS NULL THEN 'DIM_VERSIONE non risolta su periodo+versione+provincia'::text
+            WHEN id_anag_versione IS NULL THEN 'DIM_VERSIONE non risolta su anno+versione+anagrafica globale'::text
             ELSE NULL::text
         END,
         CASE
-            WHEN id_anag_articolo IS NULL THEN 'DIM_ARTICOLO non risolta su periodo+articolo+versione+provincia'::text
+            WHEN id_anag_articolo IS NULL THEN 'DIM_ARTICOLO non risolta su anno+articolo+versione+anagrafica globale'::text
             ELSE NULL::text
         END,
         CASE
-            WHEN dwh_id_anag_informatore IS NULL THEN 'DWH_ANAG_INFORMATORI non risolta su informatore+provincia+anno+versione'::text
+            WHEN dwh_id_anag_informatore IS NULL THEN 'DWH_ANAG_INFORMATORI non risolta su informatore+anno+versione+anagrafica globale'::text
             ELSE NULL::text
         END,
         CASE
@@ -127,4 +112,7 @@ CREATE OR REPLACE VIEW "hcbi_ras"."v_fct_prezzi_rilevati_src" AS
             WHEN dwh_id_anag_utente IS NOT NULL AND id_anag_utente_rilevatore IS NULL THEN 'DIM_UTENTI non contiene la PK DWH'::text
             ELSE NULL::text
         END), ''::text)::character varying(4000) AS tx_motivo_lookup
-   FROM resolved r;;
+   FROM resolved;
+
+ALTER TABLE hcbi_ras.v_fct_prezzi_rilevati_src
+    OWNER TO postgres;

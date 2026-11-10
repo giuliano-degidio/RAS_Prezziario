@@ -54,7 +54,7 @@ esistenti.
 | Database applicativo | `hcbi` |
 | Database sorgente | `RAS_Operazionales` (stesso host) |
 | Linguaggio procedurale | PL/pgSQL |
-| Orchestrazione ETL | Apache NiFi 2.11; timer systemd giornaliero e calendario DWH in PostgreSQL |
+| Orchestrazione ETL | Apache NiFi 2.11.0, flow FMR v0.4; timer systemd giornaliero e calendario DWH in PostgreSQL |
 | Reportistica | Pentaho, Power BI |
 
 A differenza di architetture a "uno schema per modulo" (es. Oracle
@@ -67,6 +67,12 @@ A differenza di architetture a "uno schema per modulo" (es. Oracle
 Non esiste quindi uno script di "creazione schema per nuovo modulo": un nuovo
 flusso aggiunge solo oggetti dentro `hcbi_ras` (tabelle + procedure) e righe
 di configurazione dentro `hcbi_utility`.
+
+Il componente di caricamento dinamico delle frontiere è distribuito nel
+progetto `nifi/frontiere-metadata-runner` (versione FMR v0.4). L'archivio
+binario pronto per il deploy è `doc/deploy/fmr-v0.4.zip`; il codice sorgente e
+le istruzioni operative restano versionati nelle directory `nifi/` e
+`doc/`.
 
 ### 2.2 Schemi e layer
 
@@ -441,7 +447,8 @@ Per installazione, gate, launcher, permessi, monitoraggio e rollback consultare:
 
 - `nifi/frontiere-metadata-runner/README.md` — architettura, gate UUID, logging,
   lock, concorrenza e test di accettazione
-- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di installazione sistemista NiFi, FMR e scheduler DWH
+- `doc/deploy/MANUALE_DEPLOY_NIFI.md` — manuale di installazione sistemista NiFi, FMR e scheduler
+- `doc/deploy/fmr-v0.4.zip` — archivio binario del pacchetto FMR v0.4 per il deploy DWH
 
 ---
 
