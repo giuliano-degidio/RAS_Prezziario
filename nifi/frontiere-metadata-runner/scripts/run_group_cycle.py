@@ -154,6 +154,45 @@ class RotatingLogTail:
         return lines
 
 
+def group_flow(nifi, pg_id):
+    return nifi.call(f"/flow/process-groups/{pg_id}").get(
+        "processGroupFlow", {}
+    ).get("flow", {})
+
+
+def assert_queues_empty(nifi, pg_id):
+    """Fail closed instead of consuming FlowFiles from an earlier cycle."""
+    flow = group_flow(nifi, pg_id)
+    queued = []
+    for connection in flow.get("connections", []):
+        status = connection.get("status", {}).get("aggregateSnapshot", {})
+        queued_count = int(status.get("flowFilesQueued", 0) or 0)
+        if queued_count:
+            queued.append(
+                (
+                    connection.get("component", {}).get("name")
+                    or connection.get("identifier"),
+                    queued_count,
+                )
+            )
+    if queued:
+        details = ", ".join(f"{name}={count}" for name, count in queued)
+        raise RuntimeError(
+            "Process Group non avviato: presenti FlowFile in coda; "
+            f"verificare e svuotare manualmente le code NiFi ({details})"
+        )
+
+
+def frontiere_cycle_uuid(rows):
+    uuids = {str(row[4]) for row in rows if row[4] is not None}
+    if len(uuids) != 1:
+        raise RuntimeError(
+            "Impossibile correlare il ciclo frontiere: UUID presenti="
+            f"{sorted(uuids)}"
+        )
+    return next(iter(uuids))
+
+
 def _connect_short(hcbi_conninfo):
     # Connessione breve per singolo poll: evita di tenere aperta per ore una
     # connessione che un firewall/NAT potrebbe droppare silenziosamente,
@@ -172,7 +211,9 @@ def poll_frontiere(hcbi_conninfo, cycle_start, dwh_log, poll_interval, quiet_sec
             with _connect_short(hcbi_conninfo) as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "SELECT frontiera_code, status, started_at, ended_at FROM hcbi_utility.etl_frontiere_run "
+                        "SELECT frontiera_code, status, started_at, ended_at, "
+                        "nifi_flowfile_uuid "
+                        "FROM hcbi_utility.etl_frontiere_run "
                         "WHERE started_at >= %s ORDER BY started_at",
                         (cycle_start,),
                     )
@@ -180,15 +221,10 @@ def poll_frontiere(hcbi_conninfo, cycle_start, dwh_log, poll_interval, quiet_sec
         except psycopg.OperationalError as exc:
             log(f"[WARN] errore di connessione durante il poll frontiere, ritento: {exc}")
             rows = []
-        if not rows and dwh_log.execution_uuid is not None:
-            log(
-                "Nessun log frontiere disponibile, ma il log DWH conferma il completamento "
-                f"del runner: execution_uuid={dwh_log.execution_uuid}"
-            )
-            return rows
         if rows:
              running = [r for r in rows if r[1] == "RUNNING"]
              if not running:
+                 current_uuid = frontiere_cycle_uuid(rows)
                  if len(rows) != last_seen_count:
                      quiet_since = time.monotonic()
                      last_seen_count = len(rows)
@@ -196,7 +232,7 @@ def poll_frontiere(hcbi_conninfo, cycle_start, dwh_log, poll_interval, quiet_sec
                      quiet_since = time.monotonic()
          
                  elif (time.monotonic() - quiet_since) >= quiet_seconds:
-                     return rows
+                     return rows, current_uuid
              else:
                  quiet_since = None
                  last_seen_count = len(rows)
@@ -209,12 +245,23 @@ def poll_frontiere(hcbi_conninfo, cycle_start, dwh_log, poll_interval, quiet_sec
         time.sleep(poll_interval)
 
 
-def poll_dwh(hcbi_conninfo, dwh_log, poll_interval, phase_timeout):
+def poll_dwh(
+    hcbi_conninfo,
+    expected_execution_uuid,
+    dwh_log,
+    poll_interval,
+    phase_timeout,
+):
     deadline = time.monotonic() + phase_timeout
     last_heartbeat = time.monotonic()
     while True:
         dwh_log.read_new_lines()
         execution_uuid = dwh_log.execution_uuid
+        if execution_uuid is not None and execution_uuid != expected_execution_uuid:
+            raise RuntimeError(
+                "UUID DWH non correlato al ciclo frontiere corrente: "
+                f"atteso={expected_execution_uuid}, trovato={execution_uuid}"
+            )
 
         row = None
         try:
@@ -226,7 +273,7 @@ def poll_dwh(hcbi_conninfo, dwh_log, poll_interval, phase_timeout):
                             "FROM hcbi_utility.etl_dwh_refresh_run "
                             "WHERE execution_uuid = %s AND chain_id = %s "
                             "ORDER BY started_at DESC LIMIT 1",
-                            (execution_uuid, 1),
+                            (expected_execution_uuid, 1),
                         )
                         row = cur.fetchone()
         except psycopg.OperationalError as exc:
@@ -292,10 +339,12 @@ def main():
     dwh_log = RotatingLogTail(args.dwh_log_file)
     log(f"Log DWH monitorato: {dwh_log.path}")
 
-    log("Avvio process group (state=RUNNING)...")
-    set_group_state(nifi, pg_id, "RUNNING")
-
     try:
+        log("Verifica preventiva code NiFi vuote...")
+        assert_queues_empty(nifi, pg_id)
+        log("Avvio process group (state=RUNNING)...")
+        set_group_state(nifi, pg_id, "RUNNING")
+
         frontiere_rows = poll_frontiere(
             hcbi,
             cycle_start,
@@ -304,11 +353,12 @@ def main():
             args.quiet_seconds,
             args.frontiere_timeout,
         )
+        frontiere_rows, expected_execution_uuid = frontiere_rows
         summary = {}
         for r in frontiere_rows:
             summary[r[1]] = summary.get(r[1], 0) + 1
         log(f"Fase frontiere conclusa: {len(frontiere_rows)} run, riepilogo={summary}")
-        for code, status, started_at, ended_at in frontiere_rows:
+        for code, status, started_at, ended_at, _flowfile_uuid in frontiere_rows:
             if status != "SUCCEEDED":
                 log(f"  - {code}: {status} (started={started_at}, ended={ended_at})")
 
@@ -317,7 +367,13 @@ def main():
             exit_code = 3
         else:
             log("Tutte le frontiere SUCCEEDED, attendo l'esecuzione del refresh DWH chain 1...")
-            dwh_row = poll_dwh(hcbi, dwh_log, args.poll_interval, args.dwh_timeout)
+            dwh_row = poll_dwh(
+                hcbi,
+                expected_execution_uuid,
+                dwh_log,
+                args.poll_interval,
+                args.dwh_timeout,
+            )
             execution_uuid, chain_id, status, started_at, ended_at, error_message = dwh_row
             log(f"Refresh DWH concluso: execution_uuid={execution_uuid} chain_id={chain_id} status={status} (started={started_at}, ended={ended_at})")
             if status != "SUCCEEDED":
