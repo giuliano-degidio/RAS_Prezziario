@@ -458,7 +458,8 @@ ps -ef | grep '[r]un_dwh_refresh.py'
     ├── bin/
     │   └── install_layout.sh
     ├── config/
-    │   └── fmr-secrets.template.json
+    │   ├── fmr-secrets.template.json
+    │   └── fmr-run-group-cycle.json
     ├── scripts/
     │   ├── load_execution_logs.py
     │   ├── deploy_nifi_flow.py
@@ -502,6 +503,7 @@ sudo systemctl show nifi.service -p User --value
 sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/.venv/bin/python
 sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/bin/launch_manual_dwh_run.sh
 sudo -u nifi test -x /opt/etl/frontiere-metadata-runner/bin/run_group_cycle.sh
+sudo -u nifi test -r /opt/etl/config/fmr-run-group-cycle.json
 sudo -u nifi test -r /opt/etl/frontiere-metadata-runner/scripts/dwh_schedule_runner.py
 sudo -u nifi test -w /opt/etl/log/dwh-scheduler
 ```
@@ -509,6 +511,25 @@ sudo -u nifi test -w /opt/etl/log/dwh-scheduler
 Ogni comando deve terminare con codice `0`. Preferire permessi assegnati
 all'owner/gruppo `nifi` (ad esempio `nifi:nifi` e `0750` per gli eseguibili)
 anziché abilitare l'esecuzione a tutti gli utenti.
+
+### Drain delle code prima dell'arresto
+
+Al termine del caricamento frontiere e del refresh DWH, il runner non porta
+immediatamente `FRONTIERE_METADATA_RUNNER` a `STOPPED`. Attende prima che tutte
+le connessioni del gruppo abbiano `flowFilesQueued = 0` e che non ci siano
+thread attivi nei processor. Dopo la richiesta di arresto esegue una seconda
+verifica dello stato `STOPPED`, delle code e dei thread.
+
+Il timeout del drain è configurato in:
+
+```text
+/opt/etl/config/fmr-run-group-cycle.json
+```
+
+Il valore iniziale è `3600` secondi (un'ora) e non può essere ridotto sotto
+questo limite. Se una coda non viene smaltita entro il timeout, il runner
+registra l'errore e non forza `STOPPED`, evitando di lasciare una coda
+residua nascosta al ciclo successivo.
 
 ---
 

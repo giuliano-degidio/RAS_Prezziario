@@ -1,0 +1,6 @@
+{
+  "drain_timeout_seconds": 3600,
+  "drain_poll_interval_seconds": 5,
+  "drain_heartbeat_seconds": 60,
+  "stop_timeout_seconds": 120
+}

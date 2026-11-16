@@ -31,6 +31,8 @@ CLIENT_ID = str(uuid.uuid4())
 TERMINAL_FRONTIERE = {"SUCCEEDED", "FAILED", "SKIPPED"}
 DWH_START_PATTERN = re.compile(r"Avvio DWH refresh: execution_uuid=([0-9a-fA-F-]{36})\s+chain_id=(\d+)")
 GROUP_NAME = "FRONTIERE_METADATA_RUNNER"
+DEFAULT_RUNTIME_CONFIG = "/opt/etl/config/fmr-run-group-cycle.json"
+MIN_DRAIN_TIMEOUT_SECONDS = 3600.0
 
 
 def api_base(url):
@@ -160,27 +162,163 @@ def group_flow(nifi, pg_id):
     ).get("flow", {})
 
 
+def load_runtime_config(path):
+    defaults = {
+        "drain_timeout_seconds": MIN_DRAIN_TIMEOUT_SECONDS,
+        "drain_poll_interval_seconds": 5.0,
+        "drain_heartbeat_seconds": 60.0,
+        "stop_timeout_seconds": 120.0,
+    }
+    config_path = Path(path)
+    if not config_path.exists():
+        log(f"File configurazione runtime assente: {config_path}; uso i valori predefiniti")
+        return defaults
+    try:
+        supplied = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Impossibile leggere la configurazione runtime {config_path}: {exc}") from exc
+    if not isinstance(supplied, dict):
+        raise RuntimeError(f"La configurazione runtime {config_path} deve contenere un oggetto JSON")
+    config = {**defaults, **supplied}
+    for key in ("drain_timeout_seconds", "drain_poll_interval_seconds", "drain_heartbeat_seconds", "stop_timeout_seconds"):
+        try:
+            config[key] = float(config[key])
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(f"Valore non numerico per {key} nella configurazione {config_path}") from exc
+        if config[key] <= 0:
+            raise RuntimeError(f"Il valore {key} deve essere maggiore di zero")
+    if config["drain_timeout_seconds"] < MIN_DRAIN_TIMEOUT_SECONDS:
+        raise RuntimeError(
+            f"drain_timeout_seconds deve essere almeno {MIN_DRAIN_TIMEOUT_SECONDS:.0f} secondi "
+            f"(configurato {config['drain_timeout_seconds']:.0f})"
+        )
+    return config
+
+
+def _component(entity):
+    return entity.get("component", entity)
+
+
+def _connection_status(nifi, connection):
+    status = connection.get("status", {}).get("aggregateSnapshot", {})
+    if status:
+        return status
+    connection_id = connection.get("component", connection).get("id") or connection.get("identifier")
+    if not connection_id:
+        return {}
+    response = nifi.call(f"/connections/{connection_id}/status")
+    return response.get("connectionStatus", {}).get("aggregateSnapshot", {})
+
+
+def _connection_details(nifi, pg_id):
+    flow = group_flow(nifi, pg_id)
+    details = []
+    for connection in flow.get("connections", []):
+        component = _component(connection)
+        status = _connection_status(nifi, connection)
+        queued_count = int(status.get("flowFilesQueued", status.get("queuedCount", 0)) or 0)
+        if queued_count:
+            source = _component(connection.get("source", {})).get("name", "?")
+            destination = _component(connection.get("destination", {})).get("name", "?")
+            details.append({
+                "id": component.get("id") or connection.get("identifier"),
+                "name": component.get("name") or connection.get("identifier"),
+                "source": source,
+                "destination": destination,
+                "count": queued_count,
+                "size": status.get("bytesQueued", status.get("queuedSize", 0)),
+                "oldest_age": status.get("oldestQueuedFlowFileAge"),
+            })
+    return details
+
+
+def _processor_details(nifi, pg_id):
+    flow = group_flow(nifi, pg_id)
+    details = []
+    for processor in flow.get("processors", []):
+        component = _component(processor)
+        processor_id = component.get("id") or processor.get("identifier")
+        status = processor.get("status", {}).get("aggregateSnapshot", {})
+        if not status and processor_id:
+            response = nifi.call(f"/processors/{processor_id}/status")
+            status = response.get("processorStatus", {}).get("aggregateSnapshot", {})
+        active = int(status.get("activeThreadCount", 0) or 0)
+        if active:
+            details.append({
+                "name": component.get("name", processor_id),
+                "state": component.get("state", component.get("scheduledState")),
+                "active": active,
+            })
+    return details
+
+
+def _format_drain_state(queues, processors):
+    parts = []
+    for item in queues:
+        parts.append(
+            f"coda {item['source']} -> {item['destination']}={item['count']} "
+            f"(oldest_age={item['oldest_age']}, size={item['size']})"
+        )
+    for item in processors:
+        parts.append(f"processor {item['name']} active_threads={item['active']} state={item['state']}")
+    return "; ".join(parts) or "stato non disponibile"
+
+
 def assert_queues_empty(nifi, pg_id):
     """Fail closed instead of consuming FlowFiles from an earlier cycle."""
-    flow = group_flow(nifi, pg_id)
-    queued = []
-    for connection in flow.get("connections", []):
-        status = connection.get("status", {}).get("aggregateSnapshot", {})
-        queued_count = int(status.get("flowFilesQueued", 0) or 0)
-        if queued_count:
-            queued.append(
-                (
-                    connection.get("component", {}).get("name")
-                    or connection.get("identifier"),
-                    queued_count,
-                )
-            )
+    queued = _connection_details(nifi, pg_id)
     if queued:
-        details = ", ".join(f"{name}={count}" for name, count in queued)
+        details = _format_drain_state(queued, [])
         raise RuntimeError(
             "Process Group non avviato: presenti FlowFile in coda; "
             f"verificare e svuotare manualmente le code NiFi ({details})"
         )
+
+
+def wait_for_queues_drained(nifi, pg_id, timeout_seconds, poll_interval, heartbeat_seconds):
+    deadline = time.monotonic() + timeout_seconds
+    last_heartbeat = 0.0
+    while True:
+        queues = _connection_details(nifi, pg_id)
+        processors = _processor_details(nifi, pg_id)
+        if not queues and not processors:
+            log("Drain NiFi completato: tutte le code sono vuote e non ci sono thread attivi")
+            return
+        if time.monotonic() - last_heartbeat >= heartbeat_seconds:
+            log(f"[heartbeat] drain NiFi in corso: {_format_drain_state(queues, processors)}")
+            last_heartbeat = time.monotonic()
+        if time.monotonic() >= deadline:
+            raise TimeoutError(
+                f"Timeout drain NiFi dopo {timeout_seconds:.0f}s: "
+                f"{_format_drain_state(queues, processors)}"
+            )
+        time.sleep(poll_interval)
+
+
+def wait_for_stopped(nifi, pg_id, timeout_seconds, poll_interval):
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        flow = group_flow(nifi, pg_id)
+        running = []
+        for processor in flow.get("processors", []):
+            component = _component(processor)
+            processor_id = component.get("id") or processor.get("identifier")
+            state = component.get("state")
+            if not state and processor_id:
+                state = nifi.call(f"/processors/{processor_id}").get("component", {}).get("state")
+            if state == "RUNNING":
+                running.append(component.get("name", processor_id))
+        queues = _connection_details(nifi, pg_id)
+        processors = _processor_details(nifi, pg_id)
+        if not running and not queues and not processors:
+            log("Process Group fermato e verificato: code vuote, nessun thread attivo")
+            return
+        if time.monotonic() >= deadline:
+            raise TimeoutError(
+                f"Timeout verifica STOPPED dopo {timeout_seconds:.0f}s: "
+                f"processor_attivi={running}; {_format_drain_state(queues, processors)}"
+            )
+        time.sleep(poll_interval)
 
 
 def frontiere_cycle_uuid(rows):
@@ -317,12 +455,18 @@ def main():
     parser.add_argument("--frontiere-timeout", type=float, default=3600.0, help="Timeout massimo fase frontiere in secondi (default: %(default)s)")
     parser.add_argument("--dwh-timeout", type=float, default=1800.0, help="Timeout massimo fase refresh DWH in secondi (default: %(default)s)")
     parser.add_argument(
+        "--runtime-config",
+        default=os.getenv("FMR_RUNTIME_CONFIG", DEFAULT_RUNTIME_CONFIG),
+        help="File JSON con i timeout di drain e stop (default: %(default)s)",
+    )
+    parser.add_argument(
         "--dwh-log-file",
         default=os.path.join(os.getenv("FMR_LOG_DIR", "/opt/etl/log/frontiere-metadata-runner"), "dwh-refresh.log"),
         help="Path del log DWH (default: %(default)s)",
     )
     parser.add_argument("--no-stop", action="store_true", help="Non fermare il process group al termine (solo per debug)")
     args = parser.parse_args()
+    runtime_config = load_runtime_config(args.runtime_config)
 
     payload = decrypt_payload(args.encrypted_config, args.key_file)
     hcbi = postgres_conninfo(payload["hcbi"]["jdbc_url"], payload["hcbi"]["username"], payload["hcbi"]["password"])
@@ -339,11 +483,13 @@ def main():
     dwh_log = RotatingLogTail(args.dwh_log_file)
     log(f"Log DWH monitorato: {dwh_log.path}")
 
+    group_started = False
     try:
         log("Verifica preventiva code NiFi vuote...")
         assert_queues_empty(nifi, pg_id)
         log("Avvio process group (state=RUNNING)...")
         set_group_state(nifi, pg_id, "RUNNING")
+        group_started = True
 
         frontiere_rows = poll_frontiere(
             hcbi,
@@ -386,15 +532,36 @@ def main():
         log(f"[ERRORE] {type(exc).__name__}: {exc}")
         exit_code = 6
 
-    if not args.no_stop:
-        log("Arresto process group (state=STOPPED)...")
+    if not args.no_stop and group_started:
         try:
+            log(
+                "Attesa svuotamento code prima dello STOPPED "
+                f"(timeout={runtime_config['drain_timeout_seconds']:.0f}s)..."
+            )
+            wait_for_queues_drained(
+                nifi,
+                pg_id,
+                runtime_config["drain_timeout_seconds"],
+                runtime_config["drain_poll_interval_seconds"],
+                runtime_config["drain_heartbeat_seconds"],
+            )
+            log("Arresto process group (state=STOPPED)...")
             set_group_state(nifi, pg_id, "STOPPED")
+            wait_for_stopped(
+                nifi,
+                pg_id,
+                runtime_config["stop_timeout_seconds"],
+                runtime_config["drain_poll_interval_seconds"],
+            )
         except Exception as exc:
-            log(f"[ATTENZIONE] impossibile fermare il process group: {exc}")
+            log(f"[ATTENZIONE] chiusura controllata non completata: {type(exc).__name__}: {exc}")
             exit_code = exit_code or 7
+            log("Il Process Group non viene forzato a STOPPED per non interrompere lo smaltimento delle code.")
     else:
-        log("Process group lasciato RUNNING (--no-stop).")
+        if args.no_stop:
+            log("Process group lasciato RUNNING (--no-stop).")
+        else:
+            log("Process Group non avviato in questo ciclo; nessun arresto richiesto.")
 
     log(f"Ciclo terminato con exit_code={exit_code}")
     return exit_code

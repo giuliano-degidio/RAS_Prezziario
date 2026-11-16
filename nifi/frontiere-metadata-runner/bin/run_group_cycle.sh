@@ -14,4 +14,5 @@ export FMR_ENCRYPTED_CONFIG=${FMR_ENCRYPTED_CONFIG:-/opt/etl/config/fmr-secrets.
 exec "$PYTHON" "$PROJECT_DIR/scripts/run_group_cycle.py" \
     --key-file "$FMR_SECRET_KEY_FILE" \
     --encrypted-config "$FMR_ENCRYPTED_CONFIG" \
+    --runtime-config "${FMR_RUNTIME_CONFIG:-/opt/etl/config/fmr-run-group-cycle.json}" \
     "$@"

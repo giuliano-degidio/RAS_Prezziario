@@ -74,7 +74,8 @@ scrivere una riga di audit in assenza di una connessione/configurazione valida.
 4. Se non è dovuto, registra `SKIPPED` e termina. Se è dovuto, registra
    `RUNNING` e avvia `bin/run_group_cycle.sh`.
 5. Il wrapper avvia il Process Group NiFi `FRONTIERE_METADATA_RUNNER`, attende
-   la fine delle frontiere e del refresh DWH chain 1, quindi ferma il gruppo.
+   la fine delle frontiere e del refresh DWH chain 1, attende lo smaltimento
+   delle code e dei thread attivi, quindi ferma il gruppo.
 6. Il batch aggiorna il run a `SUCCESS` o `FAILED` e rilascia il lock quando
    chiude la connessione.
 
@@ -99,7 +100,13 @@ giornaliero. Il trigger non deve essere avviato direttamente dagli operatori.
 
 Le connessioni del Process Group hanno back pressure a una sola FlowFile:
 eventuali FlowFile residue devono essere verificate e rimosse prima di un
-nuovo ciclo.
+nuovo ciclo. A fine ciclo il runner esegue un drain controllato prima di
+richiedere `STOPPED`: attende `flowFilesQueued = 0` su tutte le connessioni e
+`activeThreadCount = 0` su tutti i processor, poi verifica nuovamente lo stato
+dopo l'arresto. Il timeout è configurato in
+`/opt/etl/config/fmr-run-group-cycle.json` e non può essere inferiore a
+3600 secondi. Se il drain scade, il runner non forza `STOPPED` e segnala
+l'anomalia nel log.
 
 Il pacchetto aggiunge il Process Group indipendente `DWH_MANUAL_LAUNCH`. Un
 operatore autorizzato lo avvia dalla UI per inviare una richiesta one-shot. Il
