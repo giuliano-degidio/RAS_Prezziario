@@ -1,4 +1,4 @@
-# FRONTIERE METADATA RUNNER v0.4
+# FRONTIERE METADATA RUNNER v0.5
 
 ## 1. Scopo
 
@@ -20,7 +20,7 @@ Il progetto legge le configurazioni attive da `hcbi_utility.etl_frontiere_config
 ## 2. Architettura del flusso
 
 ```text
-Manual trigger
+Scheduler one-shot trigger
     |
     v
 Run sequential full refresh
@@ -56,6 +56,26 @@ original -> Terminate = true
 
 Questo evita che i processor risultino invalidi per relationship non gestite.
 Anche `unmatched` e `failure` del gate sono auto-terminate.
+
+### Scheduling dei processor
+
+Il trigger tecnico `Scheduler one-shot trigger` ha un periodo di:
+
+```text
+3650 days
+```
+
+Il periodo lungo impedisce la generazione autonoma giornaliera di nuove
+FlowFile. Tutti gli altri processor del gruppo usano invece un periodo di
+polling breve:
+
+```text
+1 sec
+```
+
+Questo valore è necessario perché il gate e `Run DWH refresh chain 1` devono
+consumare la FlowFile prodotta dalla fase frontiere durante lo stesso ciclo,
+senza attendere il successivo intervallo giornaliero.
 
 ---
 

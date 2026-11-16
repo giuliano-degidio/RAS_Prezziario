@@ -89,10 +89,17 @@ Il Process Group `FRONTIERE_METADATA_RUNNER` rimane visibile. Nel flow business,
 l'output di `Run sequential full refresh` passa attraverso un gate `ExtractText`:
 il DWH riceve il FlowFile soltanto se stdout contiene il marker valido
 `FMR_EXECUTION_UUID=<uuid>`, emesso dopo il successo di tutte le frontiere. Log o
-output senza marker non raggiungono il refresh DWH. Il `GenerateFlowFile`
-esistente resta il trigger tecnico che il wrapper FMR usa per avviare un ciclo;
-non deve essere avviato direttamente dagli operatori, perché se lasciato attivo
-può riemettere il FlowFile il giorno successivo.
+output senza marker non raggiungono il refresh DWH. Il `GenerateFlowFile` `Scheduler one-shot trigger` resta il trigger tecnico che
+il wrapper FMR usa per avviare un ciclo. Il suo `schedulingPeriod` è impostato
+a `3650 days`, quindi non genera automaticamente un nuovo ciclo giornaliero.
+Il gate, i processor `ExecuteStreamCommand` e i processor di logging usano
+invece `schedulingPeriod = 1 sec`, così la FlowFile prodotta dalla fase
+frontiere viene consumata dal gate e dal DWH senza attendere un intervallo
+giornaliero. Il trigger non deve essere avviato direttamente dagli operatori.
+
+Le connessioni del Process Group hanno back pressure a una sola FlowFile:
+eventuali FlowFile residue devono essere verificate e rimosse prima di un
+nuovo ciclo.
 
 Il pacchetto aggiunge il Process Group indipendente `DWH_MANUAL_LAUNCH`. Un
 operatore autorizzato lo avvia dalla UI per inviare una richiesta one-shot. Il

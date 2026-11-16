@@ -20,11 +20,11 @@ class Nifi:
         except urllib.error.HTTPError as exc: raise RuntimeError(f"{method} {path}: HTTP {exc.code} {exc.read().decode()}") from exc
         return body if raw else (json.loads(body) if body else {})
 def flow(nifi,pg): return nifi.call(f"/flow/process-groups/{pg}").get("processGroupFlow",{}).get("flow",{})
-def proc(nifi,pg,name,ptype,x,y,props,terminated):
-    entity=nifi.call(f"/process-groups/{pg}/processors","POST",{"revision":{"clientId":CLIENT_ID,"version":0},"component":{"name":name,"type":ptype,"position":{"x":x,"y":y},"config":{"schedulingStrategy":"TIMER_DRIVEN","schedulingPeriod":"1 day","concurrentlySchedulableTaskCount":1,"properties":props,"autoTerminatedRelationships":terminated}}})
+def proc(nifi,pg,name,ptype,x,y,props,terminated,scheduling_period="1 sec"):
+    entity=nifi.call(f"/process-groups/{pg}/processors","POST",{"revision":{"clientId":CLIENT_ID,"version":0},"component":{"name":name,"type":ptype,"position":{"x":x,"y":y},"config":{"schedulingStrategy":"TIMER_DRIVEN","schedulingPeriod":scheduling_period,"concurrentlySchedulableTaskCount":1,"properties":props,"autoTerminatedRelationships":terminated}}})
     return entity["component"]["id"]
 def connect(nifi,pg,source,dest,relationship):
-    nifi.call(f"/process-groups/{pg}/connections","POST",{"revision":{"clientId":CLIENT_ID,"version":0},"component":{"source":{"id":source,"type":"PROCESSOR","groupId":pg},"destination":{"id":dest,"type":"PROCESSOR","groupId":pg},"selectedRelationships":[relationship],"bends":[]}})
+    nifi.call(f"/process-groups/{pg}/connections","POST",{"revision":{"clientId":CLIENT_ID,"version":0},"component":{"source":{"id":source,"type":"PROCESSOR","groupId":pg},"destination":{"id":dest,"type":"PROCESSOR","groupId":pg},"selectedRelationships":[relationship],"bends":[],"backPressureObjectThreshold":1,"backPressureDataSizeThreshold":"1 MB"}})
 def verify_terminated(nifi,processor_id,relationship):
     component=nifi.call(f"/processors/{processor_id}")["component"]
     if relationship not in component.get("config",{}).get("autoTerminatedRelationships",[]):
@@ -33,8 +33,8 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument("--key-file",default="/opt/etl/secrets/fmr-secrets.key");parser.add_argument("--encrypted-config",default="/opt/etl/config/fmr-secrets.json.enc");args=parser.parse_args()
     nifi=Nifi(decrypt_payload(args.encrypted_config,args.key_file)["nifi"]);name="FRONTIERE_METADATA_RUNNER"
     if any(g.get("component",{}).get("name")==name for g in flow(nifi,"root").get("processGroups",[])): raise RuntimeError("Process Group gia esistente: eliminarlo prima del deploy")
-    pg=nifi.call("/process-groups/root/process-groups","POST",{"revision":{"clientId":CLIENT_ID,"version":0},"component":{"name":name,"position":{"x":0,"y":0},"comments":"FMR v0.4 frontiere e refresh DWH chain 1"}})["component"]["id"]
-    trigger=proc(nifi,pg,"Manual trigger","org.apache.nifi.processors.standard.GenerateFlowFile",0,0,{"Batch Size":"1","Data Format":"Text","Custom Text":"FMR manual trigger"},[])
+    pg=nifi.call("/process-groups/root/process-groups","POST",{"revision":{"clientId":CLIENT_ID,"version":0},"component":{"name":name,"position":{"x":0,"y":0},"comments":"FMR v0.5: avvio esclusivo tramite orchestratore; verificare code prima del ciclo"}})["component"]["id"]
+    trigger=proc(nifi,pg,"Scheduler one-shot trigger","org.apache.nifi.processors.standard.GenerateFlowFile",0,0,{"Batch Size":"1","Data Format":"Text","Custom Text":"FMR scheduler trigger"},[],"3650 days")
     common={"Argument Delimiter":";","Working Directory":"/opt/etl/frontiere-metadata-runner","FMR_SECRET_KEY_FILE":"/opt/etl/secrets/fmr-secrets.key","FMR_ENCRYPTED_CONFIG":"/opt/etl/config/fmr-secrets.json.enc","FMR_LOG_DIR":"/opt/etl/log/frontiere-metadata-runner"}
     p1=proc(nifi,pg,"Run sequential full refresh","org.apache.nifi.processors.standard.ExecuteStreamCommand",300,0,{**common,"Command Path":"/opt/etl/frontiere-metadata-runner/.venv/bin/python","Command Arguments":"/opt/etl/frontiere-metadata-runner/scripts/run_frontiere.py","Ignore STDIN":"true"},["original"])
     gate=proc(nifi,pg,"Gate DWH on frontiere success marker","org.apache.nifi.processors.standard.ExtractText",500,0,{"Character Set":"UTF-8","Maximum Buffer Size":"1 MB","Maximum Capture Group Length":"128","FMR_EXECUTION_UUID":r"(?m)^FMR_EXECUTION_UUID=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"},["unmatched","failure"])
