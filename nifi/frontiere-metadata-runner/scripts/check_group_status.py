@@ -73,15 +73,15 @@ def print_snapshot(nifi, pg_id):
     print(f"{'PROCESSOR':<32} {'STATE':<10} {'ACTIVE':<7} {'QUEUED IN':<10} {'TASKS':<7} {'LAST RUN'}")
     for p in flow.get("processors", []):
         comp = p["component"]
-        status = nifi.call(f"/processors/{comp['id']}/status").get("processorStatus", {}).get("aggregateSnapshot", {})
+        status = nifi.call(f"/flow/processors/{comp['id']}/status").get("processorStatus", {}).get("aggregateSnapshot", {})
         print(f"{comp['name']:<32} {comp['state']:<10} {status.get('activeThreadCount', 0):<7} "
               f"{status.get('input', '-'):<10} {status.get('tasks', '-'):<7} {status.get('executionDuration', status.get('averageLineageDuration', '-'))}")
-    bulletins = nifi.call(f"/flow/process-groups/{pg_id}/bulletins").get("bulletinBoard", {}).get("bulletins", [])
-    if bulletins:
-        print("\nBulletin recenti:")
-        for b in bulletins[-10:]:
-            m = b.get("bulletin", {})
-            print(f"  [{m.get('timestamp')}] {m.get('level')} {m.get('sourceName')}: {m.get('message')}")
+ #   bulletins = nifi.call(f"/flow/process-groups/{pg_id}/bulletins").get("bulletinBoard", {}).get("bulletins", [])
+ #   if bulletins:
+ #       print("\nBulletin recenti:")
+ #       for b in bulletins[-10:]:
+ #           m = b.get("bulletin", {})
+ #           print(f"  [{m.get('timestamp')}] {m.get('level')} {m.get('sourceName')}: {m.get('message')}")
 
 
 def main():
